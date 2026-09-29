@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-export type Party = 'abdul' | 'halimah'
+export type Party = 'abdul' | 'daremo'
 const cookieName = 'clocked_who'
 const maxAgeSeconds = 30 * 24 * 60 * 60
 
@@ -33,7 +33,7 @@ export function partyFromRequest(request: Request): Party | null {
     .find(part => part.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1)
   if (!token) return null
   const [party, issuedRaw, signature, extra] = token.split('.')
-  if (extra || (party !== 'abdul' && party !== 'halimah')) return null
+  if (extra || (party !== 'abdul' && party !== 'daremo')) return null
   const issued = Number(issuedRaw)
   const now = Date.now()
   if (!Number.isInteger(issued) || issued <= 0 || issued > now + 300_000 || now - issued > maxAgeSeconds * 1000) return null

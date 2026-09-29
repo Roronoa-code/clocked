@@ -1,4 +1,23 @@
--- Avoid the SQL CURRENT_TIME keyword when comparing timestamptz values.
+-- Keep the shared records while renaming the second sign-in.
+alter table public.clocked_state drop constraint clocked_state_updated_by_check;
+alter table public.clocked_sign_in_failures drop constraint clocked_sign_in_failures_party_check;
+
+update public.clocked_state
+set updated_by = case when updated_by is null or updated_by = 'abdul' then updated_by else 'daremo' end,
+    data = case when jsonb_typeof(data->'agreement') = 'object'
+      then jsonb_set(data, '{agreement,sisterName}', '"Daremo"'::jsonb)
+      else data end,
+    version = version + 1,
+    updated_at = now()
+where id = 1;
+
+update public.clocked_sign_in_failures set party = 'daremo' where party <> 'abdul';
+
+alter table public.clocked_state
+  add constraint clocked_state_updated_by_check check (updated_by in ('abdul', 'daremo'));
+alter table public.clocked_sign_in_failures
+  add constraint clocked_sign_in_failures_party_check check (party in ('abdul', 'daremo'));
+
 create or replace function public.clocked_register_login(
   p_party text,
   p_address_hash text,
@@ -48,3 +67,6 @@ begin
   return false;
 end;
 $$;
+
+revoke all on function public.clocked_register_login(text, text, boolean) from public, anon, authenticated;
+grant execute on function public.clocked_register_login(text, text, boolean) to service_role;

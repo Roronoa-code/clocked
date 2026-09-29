@@ -5,7 +5,7 @@ create table if not exists public.clocked_state (
   id integer primary key default 1 check (id = 1),
   version bigint not null default 0 check (version >= 0),
   data jsonb not null default '{"agreement":null,"sessions":[],"archives":[],"activeSession":null,"settings":{"reducedMotion":"system","showExcessDetails":true}}'::jsonb,
-  updated_by text check (updated_by in ('abdul', 'halimah')),
+  updated_by text check (updated_by in ('abdul', 'daremo')),
   updated_at timestamptz not null default now()
 );
 
@@ -16,7 +16,7 @@ insert into public.clocked_state (id) values (1) on conflict (id) do nothing;
 
 -- Only a salted hash of the visitor address is retained for PIN throttling.
 create table if not exists public.clocked_sign_in_failures (
-  party text not null check (party in ('abdul', 'halimah')),
+  party text not null check (party in ('abdul', 'daremo')),
   address_hash text not null,
   failures integer not null default 0 check (failures >= 0),
   first_failed_at timestamptz not null default now(),
@@ -41,7 +41,7 @@ declare
   attempt public.clocked_sign_in_failures%rowtype;
   checked_at timestamptz := now();
 begin
-  if p_party not in ('abdul', 'halimah') or length(p_address_hash) <> 64 then
+  if p_party not in ('abdul', 'daremo') or length(p_address_hash) <> 64 then
     return false;
   end if;
 

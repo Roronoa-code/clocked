@@ -3,7 +3,7 @@ import { LogOut, Settings } from 'lucide-react'
 
 interface HeaderProps {
   onOpenSettings: () => void
-  party?: 'abdul' | 'halimah'
+  party?: 'abdul' | 'daremo'
   onSignOut?: () => void
 }
 
@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, party, onSignOut
       <div className="flex items-center gap-1">
         {party && (
           <span className="px-2 text-[12px] font-medium text-[#938D9F]">
-            {party === 'abdul' ? 'Abdul' : 'Halimah'}
+            {party === 'abdul' ? 'Abdul' : 'Daremo'}
           </span>
         )}
         {onSignOut && (

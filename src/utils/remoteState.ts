@@ -1,6 +1,6 @@
 import type { ClockedData } from './validateState'
 
-export type Party = 'abdul' | 'halimah'
+export type Party = 'abdul' | 'daremo'
 export interface VersionedData { version: number; data: ClockedData }
 
 async function response<T>(request: Promise<Response>): Promise<T> {

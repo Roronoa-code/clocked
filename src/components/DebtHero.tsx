@@ -20,7 +20,7 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
   // Label text
   let labelText = 'Left to clear'
   if (isCompleted) {
-    labelText = 'All square'
+    labelText = 'Debt cleared'
   } else if (isSessionActive) {
     labelText = 'After this session'
   }

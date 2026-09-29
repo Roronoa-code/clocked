@@ -31,16 +31,16 @@ export function PinGate({ onSignIn }: Props) {
       <form onSubmit={submit} className="w-full max-w-sm space-y-6 rounded-[20px] border border-[#2D2B35] bg-[#111114] p-6">
         <div>
           <p className="text-[#B6A0E9] text-xs font-semibold uppercase tracking-[0.2em]">Clocked</p>
-          <h1 className="mt-3 text-3xl font-semibold">Welcome back</h1>
-          <p className="mt-2 text-sm text-[#ABA6B5]">Choose your name and enter your PIN. Your shared countdown is saved online.</p>
+          <h1 className="mt-3 text-3xl font-semibold">Sign in</h1>
+          <p className="mt-2 text-sm text-[#ABA6B5]">Select your name and enter your PIN.</p>
         </div>
         <fieldset>
-          <legend className="mb-2 text-sm font-medium">Who is signing in?</legend>
+          <legend className="mb-2 text-sm font-medium">Account</legend>
           <div className="grid grid-cols-2 gap-2">
-            {(['abdul', 'halimah'] as const).map(name => (
+            {(['abdul', 'daremo'] as const).map(name => (
               <label key={name} className={`flex h-12 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold ${party === name ? 'border-[#B6A0E9] bg-[#24202d] text-white' : 'border-[#2D2B35] text-[#ABA6B5]'}`}>
                 <input className="sr-only" type="radio" name="party" value={name} checked={party === name} onChange={() => setParty(name)} />
-                {name === 'abdul' ? 'Abdul' : 'Halimah'}
+                {name === 'abdul' ? 'Abdul' : 'Daremo'}
               </label>
             ))}
           </div>

@@ -4,7 +4,7 @@ A shared countdown for an agreement where work paid in US dollars reduces a debt
 
 ## Sign-in and storage
 
-Abdul and Halimah have separate name-and-PIN sign-ins. A successful sign-in creates a signed, HttpOnly browser cookie that lasts up to 30 days. Closing the browser does not end the sign-in. Clearing browser data removes the cookie, so the person must sign in again.
+Abdul and Daremo have separate name-and-PIN sign-ins. A successful sign-in creates a signed, HttpOnly browser cookie that lasts up to 30 days. Closing the browser does not end the sign-in. Clearing browser data removes the cookie, so the person must sign in again.
 
 The agreement, saved sessions, active timer, archives and display settings are held in the shared Supabase project's `clocked_state` table. Both sign-ins see the same records. The `clocked_sign_in_failures` table limits repeated PIN attempts. The browser never receives the Supabase service key or stored PINs. Server writes use a version check, so a stale tab cannot silently replace another device's change. A failed write keeps the form or frozen timer available to retry.
 
@@ -20,7 +20,7 @@ Apply the files in `supabase/migrations` in order in the chosen Supabase project
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only database access |
 | `CLOCKED_SESSION_SECRET` | Random secret of at least 32 characters for signed cookies |
 | `CLOCKED_PIN_ABDUL` | Abdul's PIN |
-| `CLOCKED_PIN_HALIMAH` | Halimah's PIN |
+| `CLOCKED_PIN_DAREMO` | Daremo's PIN |
 
 The two database tables have row-level security enabled and no public access policies. Keep all five values out of Git and browser code.
 

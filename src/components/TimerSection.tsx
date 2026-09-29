@@ -59,8 +59,8 @@ export function TimerSection({ timerStatus, activeSession, elapsedSeconds, agree
       </div>
       <div className="timer-done" aria-hidden={!completed} inert={!completed}>
         <div className="min-h-[213px] flex flex-col justify-center text-center">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#B6A0E9]">Agreement settled</p>
-          <h2 className="mt-3 text-[23px] font-semibold">All square with {agreement.sisterName || 'your sister'}</h2>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#B6A0E9]">£0 remaining</p>
+          <h2 className="mt-3 text-[23px] font-semibold">Debt cleared</h2>
           <p className="mt-2 text-[14px] text-[#ABA6B5]">{formatHoursMinutes(totalSavedSeconds)} worked across {totalSessionsCount} {totalSessionsCount === 1 ? 'session' : 'sessions'}.</p>
           {excessGbp > 0 && <p className="mt-1 text-[13px] text-[#ABA6B5]">Extra work preserved: {formatGBP(excessGbp, { allowLessThanPenny: true })}</p>}
           {onViewSessions && <button type="button" onClick={onViewSessions} className="mt-5 mx-auto min-h-11 px-4 text-[14px] font-semibold text-[#B6A0E9] hover:text-white focus-visible:outline-2 focus-visible:outline-[#B6A0E9] rounded-lg">View sessions</button>}

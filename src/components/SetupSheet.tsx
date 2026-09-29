@@ -26,7 +26,7 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
 }) => {
   const generatedFormId = useId()
   const actualFormId = formId || generatedFormId
-  const [sisterName, setSisterName] = useState(initialAgreement?.sisterName || '')
+  const [sisterName, setSisterName] = useState(initialAgreement?.sisterName || 'Daremo')
   const [originalDebt, setOriginalDebt] = useState<string>(
     initialAgreement ? String(initialAgreement.originalDebtGBP) : '60'
   )
@@ -160,7 +160,7 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
             type="text"
             value={sisterName}
             onChange={(e) => setSisterName(e.target.value)}
-            placeholder="e.g. Maya"
+            placeholder="Daremo"
             className="input-base"
           />
         </div>

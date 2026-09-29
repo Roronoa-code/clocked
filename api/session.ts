@@ -14,10 +14,10 @@ export default {
       const input = await request.json().catch(() => null) as { party?: unknown; pin?: unknown } | null
       const party = input?.party
       const pin = input?.pin
-      if ((party !== 'abdul' && party !== 'halimah') || typeof pin !== 'string' || !/^\d{4,12}$/.test(pin)) {
+      if ((party !== 'abdul' && party !== 'daremo') || typeof pin !== 'string' || !/^\d{4,12}$/.test(pin)) {
         return json({ error: 'Choose a person and enter a valid PIN.' }, 400)
       }
-      const expected = process.env[party === 'abdul' ? 'CLOCKED_PIN_ABDUL' : 'CLOCKED_PIN_HALIMAH']?.trim()
+      const expected = process.env[party === 'abdul' ? 'CLOCKED_PIN_ABDUL' : 'CLOCKED_PIN_DAREMO']?.trim()
       if (!expected) throw new Error('Clocked PIN is missing')
       const valid = equalPin(pin, expected)
       const result = await db('rpc/clocked_register_login', {
