@@ -3,10 +3,18 @@ import type { ClockedData } from './validateState'
 export type Party = 'abdul' | 'daremo'
 export interface VersionedData { version: number; data: ClockedData }
 
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function response<T>(request: Promise<Response>): Promise<T> {
   const result = await request
   const body = await result.json().catch(() => ({}))
-  if (!result.ok) throw new Error(body.error || `Request failed (${result.status})`)
+  if (!result.ok) throw new ApiError(body.error || `Request failed (${result.status})`, result.status)
   return body as T
 }
 

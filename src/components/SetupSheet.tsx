@@ -158,6 +158,7 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
           <input
             id="agreement-sister-name"
             type="text"
+            maxLength={100}
             value={sisterName}
             onChange={(e) => setSisterName(e.target.value)}
             placeholder="Daremo"

@@ -86,6 +86,7 @@ export function validateClockedData(value: unknown): value is ClockedData {
   if (value.agreement === null && (value.sessions as WorkSession[]).length > 0) return false
   if (value.activeSession !== null && !active(value.activeSession, currentId)) return false
   if (value.agreement === null && value.activeSession !== null) return false
+  if (value.activeSession && (value.sessions as WorkSession[]).some(item => item.id === (value.activeSession as ActiveSession).id)) return false
   if (!Array.isArray(value.archives) || value.archives.length > 100) return false
   for (const entry of value.archives) {
     if (!object(entry) || !agreement(entry.agreement)

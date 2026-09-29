@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react'
+import React, { useId, useLayoutEffect, useState } from 'react'
 import { ModalSheet } from './ModalSheet'
 import type { Agreement, WorkSession } from '../types'
 import { calculateSessionValues, formatGBP, formatUSD } from '../utils/calculations'
@@ -36,6 +36,18 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
   const [dateError, setDateError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    setDate(todayStr())
+    setHours('0')
+    setMinutes('30')
+    setSeconds('0')
+    setTaskNote('')
+    setDurationError(null)
+    setDateError(null)
+    setSaveError(null)
+  }, [isOpen])
   const dirty = date !== todayStr() || hours !== '0' || minutes !== '30' || seconds !== '0' || taskNote !== ''
 
   const numHours = parseInt(hours || '0', 10) || 0
@@ -207,6 +219,7 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
           <input
             id="add-time-task"
             type="text"
+            maxLength={2000}
             value={taskNote}
             onChange={(e) => setTaskNote(e.target.value)}
             placeholder="e.g. Tidying the kitchen"

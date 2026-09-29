@@ -91,6 +91,7 @@ export const CurrentSessionSheet: React.FC<CurrentSessionSheetProps> = ({
           <input
             id={`${formId}-task`}
             type="text"
+            maxLength={2000}
             value={taskNote}
             onChange={(e) => setTaskNote(e.target.value)}
             placeholder="e.g. Tidying the kitchen"

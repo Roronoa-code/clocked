@@ -23,7 +23,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
       today.getDate()
     ).padStart(2, '0')}`
 
-    const yesterday = new Date(Date.now() - 86400000)
+    const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
     const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(
       yesterday.getDate()
     ).padStart(2, '0')}`
