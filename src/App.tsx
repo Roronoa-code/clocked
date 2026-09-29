@@ -16,7 +16,7 @@ import type { Agreement, WorkSession, ActiveSession } from './types'
 import type { BackupData } from './utils/storage'
 import { loadAgreement, loadSessions, loadArchives, loadActiveSession, loadSettings } from './utils/storage'
 import { recalculateSessions, calculateProjectedSummary } from './utils/calculations'
-import { validateClockedData, type ClockedData } from './utils/validateState'
+import { sameActive, validateClockedData, type ClockedData } from './utils/validateState'
 import { useClockedTimer } from './hooks/useClockedTimer'
 import { useRemoteClocked } from './hooks/useRemoteClocked'
 
@@ -73,12 +73,6 @@ function settleAgreement(agreement: Agreement, sessions: WorkSession[]): Agreeme
   return { ...agreement, completedAt: complete ? agreement.completedAt || new Date().toISOString() : null }
 }
 
-function sameActive(a: ActiveSession | null, b: ActiveSession | null): boolean {
-  return a === b || !!a && !!b && a.id === b.id && a.agreementId === b.agreementId
-    && a.startedAt === b.startedAt && a.activeDurationMs === b.activeDurationMs
-    && a.currentRunStartedAt === b.currentRunStartedAt && a.status === b.status && a.taskNote === b.taskNote
-}
-
 export function App() {
   const { party, snapshot, error, login, logout, refresh, commit } = useRemoteClocked()
   const data = snapshot?.data
@@ -126,11 +120,15 @@ export function App() {
     return { ...current, activeSession: next }
   }), [commit])
 
-  const saveTimerSession = useCallback(async (newSession: WorkSession): Promise<boolean> => {
+  const saveTimerSession = useCallback(async (newSession: WorkSession, frozen: ActiveSession): Promise<boolean> => {
     return commit(current => {
       if (!current.agreement || newSession.agreementId !== current.agreement.id) return null
-      if (current.sessions.some(item => item.id === newSession.id)) return current
-      if (current.activeSession?.id !== newSession.id) return null
+      const existing = current.sessions.find(item => item.id === newSession.id)
+      if (existing) return !current.activeSession
+        && existing.activeDurationSec === newSession.activeDurationSec
+        && existing.taskNote === newSession.taskNote
+        && existing.date === newSession.date ? current : null
+      if (!sameActive(current.activeSession, frozen)) return null
       const nextSessions = [newSession, ...current.sessions]
       const nextAgreement = settleAgreement(current.agreement, nextSessions)
       return { ...current, sessions: nextSessions, agreement: nextAgreement, activeSession: null }

@@ -6,10 +6,11 @@ import {
   subscribeToSync,
 } from '../utils/storage'
 import { calculateSessionValues } from '../utils/calculations'
+import { sameActive } from '../utils/validateState'
 
 interface UseClockedTimerProps {
   agreement: Agreement | null
-  onSaveSession: (session: WorkSession) => Promise<boolean>
+  onSaveSession: (session: WorkSession, frozen: ActiveSession) => Promise<boolean>
   initialActiveSession?: ActiveSession | null
   onPersistActiveSession?: (
     session: ActiveSession | null,
@@ -79,7 +80,7 @@ export function useClockedTimer({
 
   const rehydrateFromServer = useCallback((session: ActiveSession | null) => {
     const pending = pendingSaveRef.current
-    if (pending && session?.id === pending.activeSession.id) {
+    if (pending && sameActive(session, pending.activeSession)) {
       setActiveSession(pending.activeSession)
       return
     }
@@ -88,6 +89,7 @@ export function useClockedTimer({
       savedNoticeRef.current = false
       clearSavedTimeout()
       setLastSavedInfo(null)
+      if (pending) setSaveErrorMessage('Session changed on another device. Review before saving.')
     } else if (!savedNoticeRef.current) {
       clearSavedTimeout()
       setTimerStatus('idle')
@@ -408,7 +410,7 @@ export function useClockedTimer({
       if (simulateFailure) throw new Error('Simulated save error')
 
       if (!pending.persisted) {
-        const success = await onSaveSession(pending.record)
+        const success = await onSaveSession(pending.record, pending.activeSession)
         if (!success) throw new Error('Session save was not confirmed')
         pending = { ...pending, persisted: true }
         pendingSaveRef.current = pending

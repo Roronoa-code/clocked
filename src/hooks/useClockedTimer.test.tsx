@@ -1,7 +1,7 @@
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ActiveSession, Agreement } from '../types'
+import type { ActiveSession, Agreement, WorkSession } from '../types'
 import { useClockedTimer } from './useClockedTimer'
 
 const agreement: Agreement = {
@@ -200,6 +200,33 @@ describe('useClockedTimer', () => {
     finishFreeze(true)
     await act(async () => { expect(await saveResult).toBe(false) })
     expect(timer.activeSession).toBeNull()
+    logError.mockRestore()
+  })
+
+  it('drops a failed save snapshot when the same timer changes on another device', async () => {
+    const startedAt = Date.now()
+    const initial: ActiveSession = {
+      id: 'session-1', agreementId: agreement.id, startedAt,
+      activeDurationMs: 0, currentRunStartedAt: startedAt,
+      status: 'running', taskNote: 'Kitchen',
+    }
+    const onSaveSession = vi.fn(async (_record: WorkSession, _frozen: ActiveSession) => false)
+    const persist = vi.fn(async () => true)
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await mount({ agreement, onSaveSession, initialActiveSession: initial, onPersistActiveSession: persist })
+    await act(async () => { vi.advanceTimersByTime(5_000) })
+    await act(async () => { expect(await timer.save()).toBe(false) })
+    expect(timer.timerStatus).toBe('save_failed')
+    expect(onSaveSession.mock.calls[0][1]).toMatchObject({ status: 'paused', activeDurationMs: 5000 })
+
+    const resumed: ActiveSession = {
+      ...initial, activeDurationMs: 5000, currentRunStartedAt: Date.now(),
+      status: 'running', taskNote: 'Kitchen and laundry',
+    }
+    await mount({ agreement, onSaveSession, initialActiveSession: resumed, onPersistActiveSession: persist })
+    expect(timer.activeSession).toEqual(resumed)
+    expect(timer.timerStatus).toBe('running')
+    expect(timer.saveErrorMessage).toContain('changed on another device')
     logError.mockRestore()
   })
 })

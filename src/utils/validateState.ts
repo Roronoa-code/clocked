@@ -8,6 +8,12 @@ export interface ClockedData {
   settings: AppSettings
 }
 
+export function sameActive(a: ActiveSession | null, b: ActiveSession | null): boolean {
+  return a === b || !!a && !!b && a.id === b.id && a.agreementId === b.agreementId
+    && a.startedAt === b.startedAt && a.activeDurationMs === b.activeDurationMs
+    && a.currentRunStartedAt === b.currentRunStartedAt && a.status === b.status && a.taskNote === b.taskNote
+}
+
 export const emptyClockedData: ClockedData = {
   agreement: null,
   sessions: [],
