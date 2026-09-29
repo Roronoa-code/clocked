@@ -5,6 +5,9 @@ import { DotMatrixNumeral } from './DotMatrixNumeral'
 import { ModalSheet } from './ModalSheet'
 import { SessionHistory } from './SessionHistory'
 import { SupportingTotals } from './SupportingTotals'
+import { DebtHero } from './DebtHero'
+import { PinGate } from './PinGate'
+import { calculateProjectedSummary, recalculateSessions } from '../utils/calculations'
 
 let root: Root
 let appRoot: HTMLDivElement
@@ -28,6 +31,37 @@ afterEach(() => {
 })
 
 describe('shared UI surfaces', () => {
+  it('validates an empty PIN inline without submitting a login request', () => {
+    const onSignIn = vi.fn()
+    act(() => root.render(<PinGate onSignIn={onSignIn} />))
+    const form = appRoot.querySelector('form')!
+    expect(form.noValidate).toBe(true)
+    act(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(onSignIn).not.toHaveBeenCalled()
+    expect(appRoot.querySelector('[role="alert"]')?.textContent).toContain('4–12 digits')
+    expect(document.activeElement?.id).toBe('clocked-pin')
+    expect(document.activeElement?.getAttribute('aria-describedby')).toBe('pin-error')
+  })
+
+  it('distinguishes projected progress from saved completion, including fractional debt', () => {
+    const agreement = { id: 'a', sisterName: 'Daremo', originalDebtGBP: 60.25,
+      hourlyRateUSD: 6, exchangeRateUSDToGBP: 1, exchangeRateSource: 'Agreed',
+      exchangeRateDate: '2026-09-29', createdAt: '2026-09-29T10:00:00Z' }
+    const saved = recalculateSessions([], agreement).summary
+    act(() => root.render(<DebtHero summary={saved} agreement={agreement} isSessionActive={false} />))
+    expect(appRoot.textContent).toContain('£0.00 cleared of £60.25')
+    expect(appRoot.querySelector('.progress-stamp')?.textContent).toBe('0%')
+
+    const nearly = calculateProjectedSummary(saved, 36149, agreement)
+    act(() => root.render(<DebtHero summary={nearly} agreement={agreement} isSessionActive />))
+    expect(appRoot.querySelector('.progress-stamp')?.getAttribute('aria-label')).toBe('99% after this session')
+    expect(appRoot.textContent).toContain('Less than £0.01')
+    const finished = calculateProjectedSummary(saved, 36150, agreement)
+    act(() => root.render(<DebtHero summary={finished} agreement={agreement} isSessionActive />))
+    expect(appRoot.querySelector('.progress-stamp')?.getAttribute('aria-label')).toBe('100% after this session')
+    expect(appRoot.textContent).not.toContain('Debt cleared')
+  })
+
   it('keeps dot cells and reserved bounds when digits change', () => {
     act(() =>
       root.render(

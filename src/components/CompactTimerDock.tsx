@@ -20,8 +20,8 @@ export function CompactTimerDock({ isVisible, timerStatus, elapsedSeconds, onPau
   }, [isVisible, timerStatus, elapsedSeconds])
   const display = isVisible ? { timerStatus, elapsedSeconds } : lastVisible.current
   return (
-    <aside role="region" aria-label="Active timer quick controls" aria-hidden={!isVisible} inert={!isVisible}
-      className={`fixed bottom-0 inset-x-0 z-40 border-t border-[#2D2B35] bg-[#19191F] px-5 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))] shadow-2xl min-[1280px]:hidden transition-transform duration-180 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}>
+    <aside role="region" aria-label="Active timer quick controls" aria-hidden={!isVisible} inert={!isVisible} data-visible={isVisible}
+      className="timer-dock fixed bottom-0 inset-x-0 z-40 border-t border-[#2D2B35] bg-[#19191F] px-5 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))] shadow-2xl min-[1280px]:hidden">
       <div className="mx-auto max-w-[560px] flex min-h-[56px] items-center gap-3">
         <div className="shrink-0">
           <span className="block text-[10px] font-semibold uppercase tracking-wider text-[#ABA6B5]">{display.timerStatus === 'running' ? 'Working' : display.timerStatus === 'save_failed' ? 'Time kept' : display.timerStatus === 'saving' ? 'Saving' : 'Paused'}</span>

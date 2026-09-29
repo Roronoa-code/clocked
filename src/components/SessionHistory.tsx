@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { ArrowUpRight, Clock3, ReceiptText } from 'lucide-react'
 import type { WorkSession } from '../types'
 import { formatHoursMinutes, formatUSD } from '../utils/calculations'
 
@@ -68,14 +69,15 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
     <section className="w-full select-none mt-2 mb-12">
       {/* Header */}
       <div className="flex items-center justify-between h-10 mb-2">
-        <h2 className="text-[18px] md:text-[20px] font-semibold text-[#F5F2F8] tracking-tight">
+        <h2 className="flex items-center gap-2 text-[18px] md:text-[20px] font-semibold text-[#F5F2F8] tracking-tight">
           Sessions
+          <span className="session-count tabular-nums">{sessions.length}</span>
         </h2>
 
         <button
           type="button"
           onClick={onOpenAddTime}
-          className="text-[13px] font-medium text-[#ABA6B5] hover:text-[#B6A0E9] py-1.5 px-2.5 rounded-lg hover:bg-[#19191F] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#B6A0E9]"
+          className="min-h-11 text-[13px] font-medium text-[#C8B3F2] hover:text-white py-1.5 px-2.5 rounded-lg hover:bg-[#19191F] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#B6A0E9]"
         >
           + Add time
         </button>
@@ -83,10 +85,10 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 
       {/* History List or Empty State */}
       {sessions.length === 0 ? (
-        <div className="pt-6 border-t border-[#2D2B35]">
-          <p className="text-[15px] text-[#ABA6B5]">
-            Your saved sessions will appear here.
-          </p>
+        <div className="empty-time-card">
+          <span className="empty-receipt" aria-hidden="true"><ReceiptText size={29} strokeWidth={1.5} /></span>
+          <p className="text-[15px] font-medium">No sessions yet</p>
+          <p className="mt-1 text-[13px] text-[#ABA6B5]">Clock in to start, or add time above.</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -113,14 +115,15 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                       key={session.id}
                       type="button"
                       onClick={() => onSelectSession(session)}
-                      className={`w-full min-h-[64px] py-3.5 flex items-center justify-between text-left hover:bg-[#111114] active:bg-[#19191F] px-2 rounded-lg transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#B6A0E9] group ${addedIds.has(session.id) ? 'session-row-new' : ''}`}
+                      className={`session-receipt w-full min-h-[72px] py-3.5 flex items-center justify-between gap-2.5 text-left hover:bg-[#111114] active:bg-[#19191F] px-2 rounded-lg transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#B6A0E9] group ${addedIds.has(session.id) ? 'session-row-new' : ''}`}
                     >
+                      <span className="session-source" aria-hidden="true"><Clock3 size={17} /></span>
                       {/* Left: Task name & metadata */}
-                      <div className="min-w-0 pr-4">
+                      <div className="min-w-0 flex-1">
                         <span className="block text-[15px] font-medium text-[#F5F2F8] truncate group-hover:text-white">
                           {title}
                         </span>
-                        <div className="flex items-center gap-1.5 text-[13px] text-[#ABA6B5] mt-0.5">
+                        <div className="flex flex-wrap items-center gap-x-1.5 text-[12px] text-[#ABA6B5] mt-0.5">
                           <span className="tabular-nums">{durationFormatted}</span>
                           <span>·</span>
                           <span className="tabular-nums">{formatUSD(session.usdEarned)}</span>
@@ -138,13 +141,14 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                       {/* Right: GBP reduction */}
                       <div className="shrink-0 text-right">
                         <div className="flex items-baseline gap-1 justify-end">
-                          <span className="text-[16px] font-semibold text-[#F5F2F8] tabular-nums">
+                          <span className="text-[15px] font-semibold text-[#CCB7F4] tabular-nums">
                             £{gbpOff}
                           </span>
                           <span className="text-[12px] text-[#ABA6B5] font-normal">
                             off
                           </span>
                         </div>
+                        <ArrowUpRight size={13} className="session-open ml-auto mt-1 text-[#938D9F]" aria-hidden="true" />
                       </div>
                     </button>
                   )

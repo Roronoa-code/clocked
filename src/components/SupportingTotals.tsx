@@ -13,7 +13,7 @@ export const SupportingTotals: React.FC<SupportingTotalsProps> = ({
   isSessionActive,
 }) => {
   return (
-    <div className="w-full grid grid-cols-2 gap-6 my-6 px-1 select-none">
+    <div className="supporting-totals w-full grid grid-cols-2 gap-4 mt-5 px-1 select-none">
       {/* Left Column: Total time worked */}
       <div>
         <span className="block text-[13px] text-[#ABA6B5] mb-1 font-medium">

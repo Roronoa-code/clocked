@@ -168,6 +168,134 @@ body {
 .input-base[type="number"]::-webkit-inner-spin-button,
 .input-base[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
+/* The balance is a punched time card; the timer is its clock. */
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: #b6a0e9;
+  color: #191221;
+  transform: rotate(-7deg);
+  transition: transform 240ms var(--ease-spring);
+}
+.balance-ticket {
+  position: relative;
+  padding: 20px 20px 0;
+  margin-bottom: 16px;
+  border: 1px solid #453752;
+  border-radius: 20px;
+  background: #211a2a;
+}
+.progress-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 47px;
+  padding: 3px 8px;
+  border: 1px solid #6b5682;
+  border-radius: 7px;
+  color: #decdf6;
+  font-size: 12px;
+  font-weight: 650;
+  transform: rotate(4deg);
+}
+.balance-ticket[data-complete="true"] .progress-stamp { color: #c3e8b9; border-color: #687d60; }
+.ticket-footer {
+  position: relative;
+  min-height: 47px;
+  margin-inline: -20px;
+  padding: 10px 20px;
+  border-top: 1px dashed #574562;
+}
+.ticket-footer::before, .ticket-footer::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  width: 13px;
+  height: 13px;
+  background: #000;
+  border: 1px solid #453752;
+  border-radius: 50%;
+}
+.ticket-footer::before { left: -7px; border-left-color: transparent; border-bottom-color: transparent; transform: rotate(45deg); }
+.ticket-footer::after { right: -7px; border-right-color: transparent; border-top-color: transparent; transform: rotate(45deg); }
+.timer-footprint { transition: grid-template-rows 220ms var(--ease-spring), border-color 240ms ease; }
+.timer-footprint[data-status="running"] { border-color: #53604c; }
+.timer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 7px;
+  padding: 3px 7px;
+  background: #1c1b22;
+  transition: color 200ms ease, background 200ms ease;
+}
+.status-light { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+.timer-footprint[data-status="running"] .timer-status { color: #c3e8b9; background: #22291f; }
+.timer-footprint[data-status="paused"] .timer-status { color: #e7c697; background: #2a241e; }
+.timer-display { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 23px; }
+.timer-emblem { width: 48px; height: 48px; flex-shrink: 0; display: grid; place-items: center; color: #aaa2b8; }
+.timer-emblem > * { grid-area: 1 / 1; }
+.session-clock { width: 100%; height: 100%; transition: color 240ms ease, opacity 220ms ease; }
+.timer-emblem[data-saved="true"] .session-clock { opacity: 0; }
+.timer-footprint[data-status="running"] .session-clock { color: #c3e8b9; }
+.timer-footprint[data-status="paused"] .session-clock { color: #e7c697; }
+.timer-reading { font-size: clamp(34px, 9.8vw, 56px); font-weight: 550; line-height: 1.1; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; }
+.timer-credit { margin: 10px 0 23px; min-height: 24px; text-align: center; color: #aba6b5; font-size: 14px; }
+.saved-stamp, .completion-stamp {
+  display: grid;
+  place-items: center;
+  color: #c3e8b9;
+  background: #22291f;
+  border: 1px solid #71816a;
+  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  transform: rotate(-8deg);
+}
+.saved-stamp { opacity: 0; transform: scale(1.18) rotate(-16deg); transition: opacity 200ms ease, transform 320ms var(--ease-spring); }
+.timer-emblem[data-saved="true"] .saved-stamp { opacity: 1; transform: scale(1) rotate(-8deg); }
+.completion-stamp { margin: 8px auto 18px; width: 52px; height: 52px; }
+.timer-dock { opacity: 0; visibility: hidden; transform: translateY(100%); transition: opacity 180ms ease, transform 220ms var(--ease-spring), visibility 0s 220ms; }
+.timer-dock[data-visible="true"] { opacity: 1; visibility: visible; transform: translateY(0); transition-delay: 0s; }
+.supporting-totals > div + div { padding-left: 20px; border-left: 1px solid #2d2b35; }
+.session-count { min-width: 24px; padding: 2px 7px; border-radius: 7px; background: #211a2a; color: #c8b3f2; font-size: 11px; text-align: center; }
+.empty-time-card { border: 1px dashed #3e3749; border-radius: 16px; padding: 25px 16px; text-align: center; background: #0b090e; }
+.empty-receipt { display: grid; place-items: center; width: 49px; height: 53px; margin: 0 auto 17px; background: #211a2a; border: 1px solid #453752; border-radius: 9px; color: #b6a0e9; transform: rotate(-8deg); }
+.session-source { display: grid; place-items: center; width: 32px; height: 36px; border: 1px solid #35303e; border-radius: 9px; background: #17131d; color: #b6a0e9; flex-shrink: 0; transition: transform 200ms var(--ease-spring), color 200ms ease; }
+.session-open { transition: transform 200ms var(--ease-spring); }
+.pin-card { border-top: 3px solid #b6a0e9; }
+.account-card { position: relative; display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; min-height: 104px; border: 1px solid #2d2b35; border-radius: 14px; color: #aba6b5; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 220ms ease, border-color 220ms ease, color 220ms ease; }
+.account-avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #242129; font-size: 18px; transition: transform 240ms var(--ease-spring), background 220ms ease, color 220ms ease; }
+.account-card[data-selected="true"] { border-color: #b6a0e9; color: #f5f2f8; background: #24202d; }
+.account-card[data-selected="true"] .account-avatar { transform: rotate(-7deg); background: #b6a0e9; color: #191221; }
+.account-check { position: absolute; top: 9px; right: 9px; color: #c8b3f2; opacity: 0; transition: opacity 180ms ease; }
+.account-card[data-selected="true"] .account-check { opacity: 1; }
+.account-card:has(input:focus-visible) { outline: 2px solid #f5f2f8; outline-offset: 3px; }
+.account-card:has(input:disabled) { cursor: wait; }
+@media (hover: hover) {
+  .clocked-brand:hover .brand-mark { transform: rotate(0); }
+  .session-receipt:hover .session-source { transform: rotate(-6deg); color: #decdf6; }
+  .session-receipt:hover .session-open { transform: translate(2px, -2px); }
+}
+@media (min-width: 640px) {
+  .balance-ticket { padding: 24px 24px 0; }
+  .ticket-footer { margin-inline: -24px; padding-inline: 24px; }
+  .timer-display { gap: 16px; }
+  .timer-emblem { width: 56px; height: 56px; }
+}
+@media (max-width: 359px) {
+  .timer-emblem { width: 36px; height: 36px; }
+  .timer-display { gap: 9px; }
+  .timer-reading { font-size: 32px; }
+  .session-source { display: none; }
+  .supporting-totals > div + div { padding-left: 12px; }
+}
+
 /* Safe area padding utilities */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);

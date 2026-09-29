@@ -33,9 +33,9 @@ export const RepaymentMarks: React.FC<RepaymentMarksProps> = ({
   // Geometry: 20 columns, 3 rows = 60 marks
   const cols = 20
   const rows = 3
-  const dotDiameter = 6
+  const dotDiameter = 8
   const dotRadius = dotDiameter / 2
-  const rowGap = 8
+  const rowGap = 9
   const viewBoxWidth = 350
   const viewBoxHeight = rows * dotDiameter + (rows - 1) * rowGap // 18 + 16 = 34
 
@@ -88,16 +88,16 @@ export const RepaymentMarks: React.FC<RepaymentMarksProps> = ({
         <defs>
           {fraction > 0 && (
             <linearGradient id="fraction-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset={`${fraction * 100}%`} stopColor="#B6A0E9" />
-              <stop offset={`${fraction * 100}%`} stopColor="#2D2B35" />
+              <stop offset={`${fraction * 100}%`} stopColor="#C8B3F2" />
+              <stop offset={`${fraction * 100}%`} stopColor="#44384F" />
             </linearGradient>
           )}
         </defs>
 
         {marks.map((m) => {
-          let fill = '#2D2B35'
+          let fill = '#44384F'
           if (m.isFullyCleared) {
-            fill = '#B6A0E9'
+            fill = '#C8B3F2'
           } else if (m.isFractional) {
             fill = 'url(#fraction-gradient)'
           }

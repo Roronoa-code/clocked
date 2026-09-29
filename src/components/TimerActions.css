@@ -21,9 +21,11 @@
   white-space: nowrap;
   overflow: hidden;
   cursor: pointer;
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 120ms ease;
+  box-shadow: 0 3px 0 #08070b;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
-.timer-action:active:not(:disabled) { transform: scale(.985); }
+.timer-action:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #08070b; }
+.timer-button-label { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .timer-action:focus-visible { outline: 2px solid #f5f2f8; outline-offset: 2px; }
 .timer-action:disabled { cursor: default; }
 .timer-action-main { background: #b6a0e9; color: #151019; }
@@ -37,5 +39,6 @@
 .timer-actions[data-active="false"] .timer-action-save { visibility: hidden; }
 .timer-actions-compact { max-width: none; }
 .timer-actions-compact .timer-action { height: 44px; border-radius: 12px; font-size: 13px; padding-inline: 4px; }
+.timer-actions-compact .timer-button-label { gap: 5px; }
 [data-reduced-motion="true"] .timer-actions,
 [data-reduced-motion="true"] .timer-action { transition-duration: 0ms; }

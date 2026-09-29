@@ -1,5 +1,5 @@
 import React from 'react'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings, Timer } from 'lucide-react'
 
 interface HeaderProps {
   onOpenSettings?: () => void
@@ -10,15 +10,16 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onOpenSettings, party, onSignOut }) => {
   return (
     <header className="h-[56px] w-full flex items-center justify-between pt-safe select-none">
-      <div className="flex items-center">
-        <span className="font-bold tracking-tight text-[24px] md:text-[26px] text-[#F5F2F8] uppercase">
+      <div className="clocked-brand flex items-center gap-2.5">
+        <span className="brand-mark" aria-hidden="true"><Timer size={20} strokeWidth={2.2} /></span>
+        <h1 className="font-bold tracking-tight text-[20px] md:text-[23px] text-[#F5F2F8] uppercase">
           CLOCKED
-        </span>
+        </h1>
       </div>
 
       <div className="flex items-center gap-1">
         {party && (
-          <span className="px-2 text-[12px] font-medium text-[#938D9F]">
+          <span className="px-1 text-[12px] font-medium text-[#ABA6B5]">
             {party === 'abdul' ? 'Abdul' : 'Daremo'}
           </span>
         )}

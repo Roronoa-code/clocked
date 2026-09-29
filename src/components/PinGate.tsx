@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Check, Timer } from 'lucide-react'
 import type { Party } from '../utils/remoteState'
 
 interface Props {
@@ -14,6 +15,11 @@ export function PinGate({ onSignIn }: Props) {
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     if (busy) return
+    if (!/^[0-9]{4,12}$/.test(pin)) {
+      setError('Enter a PIN with 4–12 digits.')
+      document.getElementById('clocked-pin')?.focus()
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -28,9 +34,9 @@ export function PinGate({ onSignIn }: Props) {
 
   return (
     <main className="min-h-screen bg-black text-[#F5F2F8] flex items-center justify-center px-5">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-6 rounded-[20px] border border-[#2D2B35] bg-[#111114] p-6">
+      <form onSubmit={submit} noValidate className="pin-card w-full max-w-sm space-y-6 rounded-[24px] border border-[#2D2B35] bg-[#111114] p-6">
         <div>
-          <p className="text-[#B6A0E9] text-xs font-semibold uppercase tracking-[0.2em]">Clocked</p>
+          <div className="flex items-center gap-3"><span className="brand-mark" aria-hidden="true"><Timer size={20} strokeWidth={2.2} /></span><p className="text-[#B6A0E9] text-xs font-semibold uppercase tracking-[0.2em]">Clocked</p></div>
           <h1 className="mt-3 text-3xl font-semibold">Sign in</h1>
           <p className="mt-2 text-sm text-[#ABA6B5]">Select your name and enter your PIN.</p>
         </div>
@@ -38,18 +44,20 @@ export function PinGate({ onSignIn }: Props) {
           <legend className="mb-2 text-sm font-medium">Account</legend>
           <div className="grid grid-cols-2 gap-2">
             {(['abdul', 'daremo'] as const).map(name => (
-              <label key={name} className={`flex h-12 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold ${party === name ? 'border-[#B6A0E9] bg-[#24202d] text-white' : 'border-[#2D2B35] text-[#ABA6B5]'}`}>
-                <input className="sr-only" type="radio" name="party" value={name} checked={party === name} onChange={() => setParty(name)} />
+              <label key={name} className="account-card" data-selected={party === name}>
+                <input className="sr-only" type="radio" name="party" value={name} checked={party === name} onChange={() => { setParty(name); setPin(''); setError('') }} disabled={busy} />
+                <span className="account-avatar" aria-hidden="true">{name === 'abdul' ? 'A' : 'D'}</span>
                 {name === 'abdul' ? 'Abdul' : 'Daremo'}
+                <Check className="account-check" size={14} aria-hidden="true" />
               </label>
             ))}
           </div>
         </fieldset>
         <div>
           <label htmlFor="clocked-pin" className="mb-2 block text-sm font-medium">PIN</label>
-          <input id="clocked-pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,12}" minLength={4} maxLength={12} required value={pin} onChange={event => setPin(event.target.value)} className="input-base w-full" />
+          <input id="clocked-pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4,12}" minLength={4} maxLength={12} required disabled={busy} aria-invalid={!!error} aria-describedby={error ? 'pin-error' : undefined} value={pin} onChange={event => setPin(event.target.value)} className="input-base w-full" />
+          {error && <p id="pin-error" role="alert" className="mt-2 text-sm text-red-300">{error}</p>}
         </div>
-        {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
         <button type="submit" disabled={busy} className="btn-base btn-violet w-full h-12 disabled:opacity-60">{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>
     </main>

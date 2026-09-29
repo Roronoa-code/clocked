@@ -1,4 +1,5 @@
 import React from 'react'
+import { Check } from 'lucide-react'
 import { DotMatrixNumeral } from './DotMatrixNumeral'
 import { RepaymentMarks } from './RepaymentMarks'
 import type { CalculationSummary, Agreement } from '../types'
@@ -27,7 +28,8 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
 
   // Active debt value to display
   const displayDebt = isSessionActive ? summary.projectedRemaining : summary.remainingDebt
-  const isSubPenny = isSessionActive ? summary.isLessThanOnePenny : summary.isLessThanOnePenny
+  const isSubPenny = summary.isLessThanOnePenny
+  const progressPercent = Math.min(displayDebt > 0 ? 99 : 100, Math.floor(summary.marksCleared / summary.marksTotal * 100))
 
   // Amount formatted string for dot-matrix
   const amountStr = displayDebt.toFixed(2)
@@ -39,23 +41,26 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
   } else if (isSessionActive) {
     contextLine = `£${summary.totalCreditApplied.toFixed(2)} cleared before this session`
   } else {
-    contextLine = `£${summary.totalCreditApplied.toFixed(2)} cleared of £${agreement.originalDebtGBP.toFixed(0)}`
+    contextLine = `£${summary.totalCreditApplied.toFixed(2)} cleared of £${agreement.originalDebtGBP.toFixed(2)}`
   }
 
   return (
-    <section className="w-full flex flex-col items-stretch text-left select-none pt-2 pb-6 px-5">
+    <section className="balance-ticket w-full flex flex-col items-stretch text-left select-none" data-complete={isCompleted}>
       {/* 1. Secondary label (constant height) */}
-      <div className="h-6 flex items-center justify-start mb-3">
+      <div className="flex min-h-7 items-center justify-between gap-2 mb-3">
         <span
           className={`text-[13px] font-medium tracking-wide uppercase ${
             isCompleted
               ? 'text-[#B6A0E9] font-semibold'
               : isSessionActive
               ? 'text-[#ABA6B5]'
-              : 'text-[#938D9F]'
+              : 'text-[#C7BDD8]'
           }`}
         >
           {labelText}
+        </span>
+        <span className="progress-stamp tabular-nums" aria-label={`${progressPercent}% ${isSessionActive ? 'after this session' : 'cleared'}`}>
+          {isCompleted && <Check size={13} aria-hidden="true" />}{progressPercent}%
         </span>
       </div>
 
@@ -80,7 +85,7 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
       </div>
 
       {/* 3. Repayment marks field (3 rows of 20) */}
-      <div className="w-full max-w-[350px] my-5 px-1">
+      <div className="w-full mt-5 mb-4">
         <RepaymentMarks
           marksCleared={summary.marksCleared}
           marksTotal={summary.marksTotal}
@@ -88,8 +93,8 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
       </div>
 
       {/* 4. Short contextual line */}
-      <div className="min-h-5 flex items-center justify-start">
-        <p className="text-[13px] text-[#ABA6B5] tracking-normal">
+      <div className="ticket-footer flex items-center justify-start">
+        <p className="text-[12px] sm:text-[13px] text-[#C7BDD8] tracking-normal">
           {contextLine}
         </p>
       </div>
