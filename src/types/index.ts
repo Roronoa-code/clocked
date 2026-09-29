@@ -19,6 +19,7 @@ export interface WorkSession {
   activeDurationSec: number // exact active seconds
   taskNote?: string // e.g. "Tidying the kitchen"
   usdEarned: number // high precision
+  hourlyRateUSD?: number // rate snapshot; absent on legacy sessions
   exchangeRate: number // the rate applied
   gbpCredit: number // total GBP value of work
   appliedGbp: number // portion applied to debt

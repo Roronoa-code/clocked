@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   saveAgreement,
   loadAgreement,
@@ -106,5 +106,34 @@ describe('Storage and Backup', () => {
 
     const missingSessions = parseAndValidateBackup('{"version": 1}')
     expect(missingSessions.valid).toBe(false)
+    const malformedSession = parseAndValidateBackup(JSON.stringify({
+      version: 1, exportedAt: '2026-09-29T10:00:00Z', agreement: testAgreement,
+      sessions: [{ id: 'broken' }], archives: [], activeSession: null,
+    }))
+    expect(malformedSession.valid).toBe(false)
+    const orphanSession = parseAndValidateBackup(JSON.stringify({
+      version: 1, exportedAt: '2026-09-29T10:00:00Z', agreement: null,
+      sessions: [{ ...testSessions[0], agreementId: '' }], archives: [], activeSession: null,
+    }))
+    expect(orphanSession.valid).toBe(false)
+  })
+
+  it('clears an old timer on restore and reports failed writes', () => {
+    saveAgreement(testAgreement)
+    saveActiveSession({
+      id: 'act-1', agreementId: 'ag-1', startedAt: 1000,
+      activeDurationMs: 5000, currentRunStartedAt: null,
+      status: 'paused', taskNote: '',
+    })
+    const backup = parseAndValidateBackup(JSON.stringify({
+      version: 1, exportedAt: '2026-09-29T10:00:00Z', agreement: testAgreement,
+      sessions: testSessions, archives: [], activeSession: null,
+    })).data!
+    const failingWrite = vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('quota') })
+    expect(restoreBackup(backup)).toBe(false)
+    expect(loadActiveSession()).not.toBeNull()
+    failingWrite.mockRestore()
+    expect(restoreBackup(backup)).toBe(true)
+    expect(loadActiveSession()).toBeNull()
   })
 })

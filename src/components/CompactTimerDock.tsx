@@ -1,81 +1,33 @@
-import React from 'react'
-import { Loader2 } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import type { ActiveSessionStatus } from '../types'
 import { formatHMS } from '../utils/calculations'
+import { TimerActions } from './TimerActions'
 
-interface CompactTimerDockProps {
+interface Props {
   isVisible: boolean
   timerStatus: ActiveSessionStatus
   elapsedSeconds: number
   onPause: () => void
   onResume: () => void
   onSave: () => void
+  onRetrySave: () => void
 }
 
-export const CompactTimerDock: React.FC<CompactTimerDockProps> = ({
-  isVisible,
-  timerStatus,
-  elapsedSeconds,
-  onPause,
-  onResume,
-  onSave,
-}) => {
-  if (!isVisible) return null
-
-  const isSaving = timerStatus === 'saving'
-
+export function CompactTimerDock({ isVisible, timerStatus, elapsedSeconds, onPause, onResume, onSave, onRetrySave }: Props) {
+  const lastVisible = useRef({ timerStatus, elapsedSeconds })
+  useEffect(() => {
+    if (isVisible) lastVisible.current = { timerStatus, elapsedSeconds }
+  }, [isVisible, timerStatus, elapsedSeconds])
+  const display = isVisible ? { timerStatus, elapsedSeconds } : lastVisible.current
   return (
-    <aside
-      role="region"
-      aria-label="Active timer quick controls"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-[#19191F] border-t border-[#2D2B35] pb-safe shadow-2xl transition-transform duration-180 ease-out md:hidden"
-    >
-      <div className="h-[72px] px-5 flex items-center justify-between gap-3 max-w-[500px] mx-auto">
-        {/* Current Timer reading */}
-        <div className="flex flex-col">
-          <span className="text-[11px] text-[#ABA6B5] uppercase font-semibold tracking-wider">
-            {timerStatus === 'running' ? 'Working' : 'Paused'}
-          </span>
-          <span className="text-[24px] font-semibold text-[#F5F2F8] tabular-nums leading-tight">
-            {formatHMS(elapsedSeconds)}
-          </span>
+    <aside role="region" aria-label="Active timer quick controls" aria-hidden={!isVisible} inert={!isVisible}
+      className={`fixed bottom-0 inset-x-0 z-40 border-t border-[#2D2B35] bg-[#19191F] px-5 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))] shadow-2xl min-[1280px]:hidden transition-transform duration-180 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}>
+      <div className="mx-auto max-w-[560px] flex min-h-[56px] items-center gap-3">
+        <div className="shrink-0">
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-[#ABA6B5]">{display.timerStatus === 'running' ? 'Working' : display.timerStatus === 'save_failed' ? 'Time kept' : display.timerStatus === 'saving' ? 'Saving' : 'Paused'}</span>
+          <span className="block text-[20px] font-semibold tabular-nums leading-tight">{formatHMS(display.elapsedSeconds)}</span>
         </div>
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-2">
-          {timerStatus === 'running' ? (
-            <button
-              type="button"
-              onClick={onPause}
-              disabled={isSaving}
-              className="h-[44px] px-4 rounded-[12px] bg-[#2D2B35] text-[#F5F2F8] text-[15px] font-semibold hover:bg-[#383642] active:scale-[0.985] transition-all disabled:opacity-40"
-            >
-              Pause
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onResume}
-              disabled={isSaving}
-              className="h-[44px] px-4 rounded-[12px] bg-[#B6A0E9] text-[#151019] text-[15px] font-semibold hover:bg-[#c4b1ed] active:scale-[0.985] transition-all disabled:opacity-40"
-            >
-              Resume
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={isSaving}
-            className="h-[44px] px-4 rounded-[12px] bg-[#F5F2F8] text-[#151019] text-[15px] font-semibold hover:bg-white active:scale-[0.985] transition-all disabled:opacity-75 flex items-center justify-center min-w-[70px]"
-          >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin text-[#151019]" />
-            ) : (
-              'Save'
-            )}
-          </button>
-        </div>
+        <div className="min-w-0 flex-1"><TimerActions compact status={display.timerStatus} onPause={onPause} onResume={onResume} onSave={onSave} onRetrySave={onRetrySave} /></div>
       </div>
     </aside>
   )

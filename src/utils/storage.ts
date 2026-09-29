@@ -1,4 +1,5 @@
 import type { Agreement, WorkSession, ActiveSession, AppSettings } from '../types'
+import { validateClockedData } from './validateState'
 
 const STORAGE_KEYS = {
   AGREEMENT: 'clocked_v1_agreement',
@@ -172,8 +173,12 @@ export interface BackupData {
   activeSession: ActiveSession | null
 }
 
-export function generateExportJSON(): string {
-  const data: BackupData = {
+export function generateExportJSON(override?: Omit<BackupData, 'version' | 'exportedAt'>): string {
+  const data: BackupData = override ? {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    ...override,
+  } : {
     version: 1,
     exportedAt: new Date().toISOString(),
     agreement: loadAgreement(),
@@ -184,8 +189,8 @@ export function generateExportJSON(): string {
   return JSON.stringify(data, null, 2)
 }
 
-export function downloadBackupFile() {
-  const jsonStr = generateExportJSON()
+export function downloadBackupFile(override?: Omit<BackupData, 'version' | 'exportedAt'>) {
+  const jsonStr = generateExportJSON(override)
   const blob = new Blob([jsonStr], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -201,34 +206,52 @@ export function downloadBackupFile() {
 export function parseAndValidateBackup(jsonString: string): { valid: boolean; data?: BackupData; error?: string } {
   try {
     const parsed = JSON.parse(jsonString)
-    if (!parsed || typeof parsed !== 'object') {
-      return { valid: false, error: 'File is not a valid JSON object.' }
+    const normalizeDate = (agreement: any) => {
+      if (!agreement || typeof agreement.exchangeRateDate !== 'string' || /^\d{4}-\d{2}-\d{2}$/.test(agreement.exchangeRateDate)) return
+      const timestamp = Date.parse(agreement.exchangeRateDate)
+      if (Number.isFinite(timestamp)) agreement.exchangeRateDate = new Date(timestamp).toISOString().slice(0, 10)
     }
-    if (!('sessions' in parsed) || !Array.isArray(parsed.sessions)) {
-      return { valid: false, error: 'Backup is missing sessions list.' }
-    }
+    normalizeDate(parsed?.agreement)
+    if (Array.isArray(parsed?.archives)) parsed.archives.forEach((entry: any) => normalizeDate(entry?.agreement))
+    if (!parsed || typeof parsed !== 'object' || parsed.version !== 1
+      || typeof parsed.exportedAt !== 'string' || !Number.isFinite(Date.parse(parsed.exportedAt))
+      || !validateClockedData({
+        agreement: parsed.agreement,
+        sessions: parsed.sessions,
+        archives: parsed.archives,
+        activeSession: parsed.activeSession,
+        settings: { reducedMotion: 'system', showExcessDetails: true },
+      })) return { valid: false, error: 'This backup has missing or invalid Clocked records.' }
     return { valid: true, data: parsed as BackupData }
-  } catch (err: any) {
-    return { valid: false, error: err?.message || 'Invalid JSON format.' }
+  } catch {
+    return { valid: false, error: 'Invalid JSON format.' }
   }
 }
 
 export function restoreBackup(data: BackupData): boolean {
+  if (!parseAndValidateBackup(JSON.stringify(data)).valid) return false
+  const keys = [STORAGE_KEYS.AGREEMENT, STORAGE_KEYS.SESSIONS, STORAGE_KEYS.ARCHIVES, STORAGE_KEYS.ACTIVE_SESSION]
+  const previous = keys.map(key => localStorage.getItem(key))
   try {
-    if (data.agreement) {
-      saveAgreement(data.agreement)
-    }
-    if (data.sessions) {
-      saveSessions(data.sessions)
-    }
-    if (data.archives) {
-      saveArchives(data.archives)
-    }
-    if (data.activeSession) {
-      saveActiveSession(data.activeSession)
-    }
+    if (data.agreement === null) localStorage.removeItem(STORAGE_KEYS.AGREEMENT)
+    else localStorage.setItem(STORAGE_KEYS.AGREEMENT, JSON.stringify(data.agreement))
+    localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(data.sessions))
+    localStorage.setItem(STORAGE_KEYS.ARCHIVES, JSON.stringify(data.archives))
+    if (data.activeSession === null) localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION)
+    else localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, JSON.stringify(data.activeSession))
+    broadcastMessage({ type: 'AGREEMENT_UPDATE', agreement: data.agreement })
+    broadcastMessage({ type: 'SESSIONS_UPDATE', sessions: data.sessions })
+    broadcastMessage({ type: 'ACTIVE_SESSION_UPDATE', activeSession: data.activeSession })
     return true
   } catch (err) {
+    try {
+      keys.forEach((key, index) => {
+        if (previous[index] === null) localStorage.removeItem(key)
+        else localStorage.setItem(key, previous[index]!)
+      })
+    } catch (rollbackError) {
+      console.error('Failed to roll back a local restore', rollbackError)
+    }
     console.error('Failed to restore backup', err)
     return false
   }

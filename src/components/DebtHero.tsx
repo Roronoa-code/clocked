@@ -43,9 +43,9 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
   }
 
   return (
-    <section className="w-full flex flex-col items-center text-center select-none pt-2 pb-6">
+    <section className="w-full flex flex-col items-stretch text-left select-none pt-2 pb-6 px-5">
       {/* 1. Secondary label (constant height) */}
-      <div className="h-6 flex items-center justify-center mb-3">
+      <div className="h-6 flex items-center justify-start mb-3">
         <span
           className={`text-[13px] font-medium tracking-wide uppercase ${
             isCompleted
@@ -60,13 +60,13 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
       </div>
 
       {/* 2. Dotted GBP amount or Sub-penny treatment */}
-      <div className="min-h-[84px] md:min-h-[104px] flex items-center justify-center my-1">
+      <div className="w-full min-h-[72px] md:min-h-[94px] flex items-center justify-start my-1">
         {isSubPenny ? (
-          <div className="flex flex-col items-center justify-center">
-            <span className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#F5F2F8] tracking-tight">
+          <div className="flex min-w-0 flex-col items-start justify-center">
+            <span className="text-2xl sm:text-3xl md:text-4xl font-semibold text-[#F5F2F8] tracking-tight">
               Less than £0.01
             </span>
-            <span className="text-[13px] text-[#ABA6B5] mt-1">
+            <span className="text-[13px] text-[#ABA6B5] mt-1 tabular-nums">
               (£{displayDebt.toFixed(4)} remaining)
             </span>
           </div>
@@ -74,6 +74,7 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
           <DotMatrixNumeral
             amountString={amountStr}
             accessibleLabel={`${formatGBP(displayDebt)} ${labelText}`}
+            reservedCharacterCount={agreement.originalDebtGBP.toFixed(2).length}
           />
         )}
       </div>
@@ -87,7 +88,7 @@ export const DebtHero: React.FC<DebtHeroProps> = ({
       </div>
 
       {/* 4. Short contextual line */}
-      <div className="h-5 flex items-center justify-center">
+      <div className="min-h-5 flex items-center justify-start">
         <p className="text-[13px] text-[#ABA6B5] tracking-normal">
           {contextLine}
         </p>

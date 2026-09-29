@@ -10,7 +10,7 @@
   --color-quiet: #938D9F;
   --color-violet: #B6A0E9;
   --color-violet-text: #151019;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 :root {
@@ -42,6 +42,33 @@ body {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+.dot-matrix-dot {
+  transition: fill 120ms ease-out, opacity 120ms ease-out;
+}
+
+@keyframes sheet-route-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.sheet-route { animation: sheet-route-in 190ms var(--ease-spring) both; }
+
+@keyframes session-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.session-row-new { animation: session-row-in 240ms var(--ease-spring) both; }
+
+.timer-footprint {
+  display: grid;
+  grid-template-rows: 1fr 0fr;
+  transition: grid-template-rows 220ms var(--ease-spring);
+}
+.timer-footprint-complete { grid-template-rows: 0fr 1fr; }
+.timer-live, .timer-done { min-height: 0; overflow: hidden; transition: opacity 160ms ease-out; }
+.timer-done { opacity: 0; }
+.timer-footprint-complete .timer-live { opacity: 0; }
+.timer-footprint-complete .timer-done { opacity: 1; }
 
 /* Button interactive base styles */
 .btn-base {
@@ -130,12 +157,11 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* Reduced motion preference */
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+[data-reduced-motion="true"] *,
+[data-reduced-motion="true"] ::before,
+[data-reduced-motion="true"] ::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }

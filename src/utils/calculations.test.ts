@@ -50,6 +50,7 @@ describe('Clocked calculations', () => {
       date: '2026-09-29',
       activeDurationSec: 300,
       usdEarned: 0,
+      hourlyRateUSD: 6.0,
       exchangeRate: 0.8,
       gbpCredit: 0,
       appliedGbp: 0,
@@ -64,6 +65,7 @@ describe('Clocked calculations', () => {
         date: '2026-09-29',
         activeDurationSec: 3600,
         usdEarned: 0,
+        hourlyRateUSD: 6.0,
         exchangeRate: 0.8,
         gbpCredit: 0,
         appliedGbp: 0,
@@ -90,6 +92,98 @@ describe('Clocked calculations', () => {
     expect(result12.summary.remainingDebt).toBe(result1.summary.remainingDebt)
   })
 
+  it('keeps arbitrary split durations within the 8-decimal per-session rounding policy', () => {
+    const durations = [101, 257]
+    const split = recalculateSessions(
+      durations.map((activeDurationSec, i): WorkSession => ({
+        id: `arbitrary-split-${i}`,
+        agreementId: testAgreement.id,
+        date: '2026-09-29',
+        activeDurationSec,
+        usdEarned: 0,
+        hourlyRateUSD: 6.0,
+        exchangeRate: 0.8,
+        gbpCredit: 0,
+        appliedGbp: 0,
+        excessGbp: 0,
+        createdAt: `2026-09-29T10:0${i}:00Z`,
+      })),
+      testAgreement
+    )
+    const whole = recalculateSessions(
+      [
+        {
+          id: 'arbitrary-whole',
+          agreementId: testAgreement.id,
+          date: '2026-09-29',
+          activeDurationSec: 358,
+          usdEarned: 0,
+          hourlyRateUSD: 6.0,
+          exchangeRate: 0.8,
+          gbpCredit: 0,
+          appliedGbp: 0,
+          excessGbp: 0,
+          createdAt: '2026-09-29T10:00:00Z',
+        },
+      ],
+      testAgreement
+    )
+
+    expect(split.summary.totalSavedSeconds).toBe(358)
+    expect(Math.abs(split.summary.totalUsdEarned - whole.summary.totalUsdEarned)).toBeLessThanOrEqual(1e-8)
+    expect(Math.abs(split.summary.totalGbpCredit - whole.summary.totalGbpCredit)).toBeLessThanOrEqual(2e-8)
+  })
+
+  it('uses each historical session rate snapshot instead of current agreement rates', () => {
+    const session: WorkSession[] = [
+      {
+        id: 'historical-rates',
+        agreementId: testAgreement.id,
+        date: '2026-09-29',
+        activeDurationSec: 3600,
+        usdEarned: 0,
+        hourlyRateUSD: 5.0,
+        exchangeRate: 0.7,
+        gbpCredit: 0,
+        appliedGbp: 0,
+        excessGbp: 0,
+        createdAt: '2026-09-29T10:00:00Z',
+      },
+    ]
+
+    const { recalculatedSessions, summary } = recalculateSessions(session, testAgreement)
+    expect(recalculatedSessions[0].hourlyRateUSD).toBe(5.0)
+    expect(recalculatedSessions[0].exchangeRate).toBe(0.7)
+    expect(recalculatedSessions[0].usdEarned).toBe(5.0)
+    expect(recalculatedSessions[0].gbpCredit).toBe(3.5)
+    expect(summary.totalUsdEarned).toBe(5.0)
+    expect(summary.totalGbpCredit).toBe(3.5)
+  })
+
+  it('preserves saved money for legacy sessions without an hourly-rate snapshot', () => {
+    const session: WorkSession[] = [
+      {
+        id: 'legacy-money',
+        agreementId: testAgreement.id,
+        date: '2026-09-29',
+        activeDurationSec: 3600,
+        usdEarned: 4.12345678,
+        exchangeRate: 0.7,
+        gbpCredit: 2.87654321,
+        appliedGbp: 0,
+        excessGbp: 0,
+        createdAt: '2026-09-29T10:00:00Z',
+      },
+    ]
+
+    const { recalculatedSessions, summary } = recalculateSessions(session, testAgreement)
+    expect(recalculatedSessions[0].usdEarned).toBe(4.12345678)
+    expect(recalculatedSessions[0].exchangeRate).toBe(0.7)
+    expect(recalculatedSessions[0].gbpCredit).toBe(2.87654321)
+    expect(summary.totalUsdEarned).toBe(4.12345678)
+    expect(summary.totalGbpCredit).toBe(2.87654321)
+  })
+
   it('preserves exact fractional pennies and avoids negative balance when work exceeds debt', () => {
     // 15 hours of work = 15 * 3600s = 54000s
     // At $6/hr and 0.80 rate, 1 hr = £4.80.
@@ -104,6 +198,7 @@ describe('Clocked calculations', () => {
         date: '2026-09-29',
         activeDurationSec: 54000,
         usdEarned: 0,
+        hourlyRateUSD: 6.0,
         exchangeRate: 0.8,
         gbpCredit: 0,
         appliedGbp: 0,
@@ -135,6 +230,7 @@ describe('Clocked calculations', () => {
         date: '2026-09-29',
         activeDurationSec: 44999,
         usdEarned: 0,
+        hourlyRateUSD: 6.0,
         exchangeRate: 0.8,
         gbpCredit: 0,
         appliedGbp: 0,
@@ -149,6 +245,17 @@ describe('Clocked calculations', () => {
     expect(summary.isLessThanOnePenny).toBe(true)
     expect(summary.isAllSquare).toBe(false)
     expect(formatGBP(summary.remainingDebt, { allowLessThanPenny: true })).toBe('Less than £0.01')
+  })
+
+  it('retains every positive balance representable at 8 decimal places', () => {
+    const { summary } = recalculateSessions([], {
+      ...testAgreement,
+      originalDebtGBP: 0.00000005,
+    })
+
+    expect(summary.remainingDebt).toBe(0.00000005)
+    expect(summary.isLessThanOnePenny).toBe(true)
+    expect(summary.isAllSquare).toBe(false)
   })
 
   it('correctly calculates projected balance during pending active session', () => {

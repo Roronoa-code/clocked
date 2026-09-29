@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useId, useRef } from 'react'
 import { ModalSheet } from './ModalSheet'
 import type { Agreement } from '../types'
 import { Loader2, RefreshCw } from 'lucide-react'
@@ -6,9 +6,12 @@ import { Loader2, RefreshCw } from 'lucide-react'
 interface SetupSheetProps {
   isOpen: boolean
   onClose?: () => void
-  onSaveAgreement: (agreement: Agreement) => void
+  onSaveAgreement: (agreement: Agreement) => boolean | Promise<boolean>
   initialAgreement?: Agreement | null
   isFirstSetup?: boolean
+  embedded?: boolean
+  formId?: string
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 export const SetupSheet: React.FC<SetupSheetProps> = ({
@@ -17,7 +20,12 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
   onSaveAgreement,
   initialAgreement,
   isFirstSetup = false,
+  embedded = false,
+  formId,
+  onDirtyChange,
 }) => {
+  const generatedFormId = useId()
+  const actualFormId = formId || generatedFormId
   const [sisterName, setSisterName] = useState(initialAgreement?.sisterName || '')
   const [originalDebt, setOriginalDebt] = useState<string>(
     initialAgreement ? String(initialAgreement.originalDebtGBP) : '60'
@@ -26,19 +34,23 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
     initialAgreement ? String(initialAgreement.hourlyRateUSD) : '6'
   )
   const [rateInput, setRateInput] = useState<string>(
-    initialAgreement ? String(initialAgreement.exchangeRateUSDToGBP) : '0.80'
+    initialAgreement ? String(initialAgreement.exchangeRateUSDToGBP) : ''
   )
   const [rateSource, setRateSource] = useState<string>(
-    initialAgreement?.exchangeRateSource || 'Controlled test rate'
+    initialAgreement?.exchangeRateSource || ''
   )
   const [rateDate, setRateDate] = useState<string>(
-    initialAgreement?.exchangeRateDate || '2026-09-29'
+    initialAgreement?.exchangeRateDate || ''
   )
   const [isFetchingRate, setIsFetchingRate] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const rateRequestVersion = useRef(0)
 
   const fetchLiveExchangeRate = useCallback(async () => {
+    const requestVersion = ++rateRequestVersion.current
     setIsFetchingRate(true)
     setFetchError(null)
     try {
@@ -46,29 +58,22 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       if (data && data.rates && typeof data.rates.GBP === 'number') {
+        if (rateRequestVersion.current !== requestVersion) return
         const liveGbp = data.rates.GBP
         const roundedGbp = Number(liveGbp.toFixed(4))
         setRateInput(String(roundedGbp))
-        setRateSource('open.er-api.com (European Central Bank data)')
-        const dateStr = data.time_last_update_utc
-          ? new Date(data.time_last_update_utc).toLocaleDateString('en-GB', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })
-          : new Date().toLocaleDateString('en-GB')
+        setRateSource('open.er-api.com')
+        const dateStr = new Date(data.time_last_update_utc || Date.now()).toISOString().slice(0, 10)
         setRateDate(dateStr)
       } else {
         throw new Error('GBP rate not found in response')
       }
-    } catch (err: any) {
+    } catch (err) {
       console.warn('Could not fetch live rate:', err)
-      setFetchError('Could not fetch live rate. Please enter an agreed rate below.')
-      setRateInput('0.80')
-      setRateSource('Agreed test rate')
-      setRateDate(new Date().toLocaleDateString('en-GB'))
+      if (rateRequestVersion.current !== requestVersion) return
+      setFetchError('Live rate unavailable. Enter or confirm the agreed rate manually.')
     } finally {
-      setIsFetchingRate(false)
+      if (rateRequestVersion.current === requestVersion) setIsFetchingRate(false)
     }
   }, [])
 
@@ -78,27 +83,31 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
       fetchLiveExchangeRate()
     }
   }, [isOpen, isFirstSetup, initialAgreement, fetchLiveExchangeRate])
-  const handleUseTestRate = () => {
-    setRateInput('0.80')
-    setRateSource('Controlled test rate (US$1 = £0.80)')
-    setRateDate('2026-09-29')
-    setFetchError(null)
-  }
 
   const numericRate = parseFloat(rateInput)
   const numericDebt = parseFloat(originalDebt)
   const numericHourly = parseFloat(hourlyRate)
 
   // Previews
-  const previewValid = !isNaN(numericRate) && numericRate > 0 && !isNaN(numericHourly) && numericHourly > 0
+  const previewValid = Number.isFinite(numericRate) && numericRate > 0 && Number.isFinite(numericHourly) && numericHourly > 0
   const oneHourUsd = numericHourly
-  const oneHourGbp = previewValid ? (oneHourUsd * numericRate).toFixed(2) : '0.00'
+  const oneHourGbp = oneHourUsd * numericRate
   const fiveMinUsd = (numericHourly * 300) / 3600
-  const fiveMinGbp = previewValid ? (fiveMinUsd * numericRate).toFixed(2) : '0.00'
+  const fiveMinGbp = fiveMinUsd * numericRate
+  const formatPreviewAmount = (amount: number) => (previewValid ? amount.toFixed(2) : '—')
+  const dirty = sisterName !== (initialAgreement?.sisterName || '')
+    || originalDebt !== (initialAgreement ? String(initialAgreement.originalDebtGBP) : '60')
+    || hourlyRate !== (initialAgreement ? String(initialAgreement.hourlyRateUSD) : '6')
+    || rateInput !== (initialAgreement ? String(initialAgreement.exchangeRateUSDToGBP) : '')
+    || rateSource !== (initialAgreement?.exchangeRateSource || '')
+    || rateDate !== (initialAgreement?.exchangeRateDate || '')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setValidationError(null)
+    setSaveError(null)
 
     if (isNaN(numericDebt) || numericDebt <= 0) {
       setValidationError('Please enter a valid debt amount in pounds.')
@@ -113,33 +122,41 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
       return
     }
 
+    const effectiveRateSource = rateSource || 'Manual entry'
+    const effectiveRateDate = rateDate || new Date().toISOString().slice(0, 10)
+
     const agreement: Agreement = {
       id: initialAgreement?.id || 'agreement-' + Date.now(),
       sisterName: sisterName.trim(),
       originalDebtGBP: numericDebt,
       hourlyRateUSD: numericHourly,
       exchangeRateUSDToGBP: numericRate,
-      exchangeRateSource: rateSource,
-      exchangeRateDate: rateDate,
+      exchangeRateSource: effectiveRateSource,
+      exchangeRateDate: effectiveRateDate,
       createdAt: initialAgreement?.createdAt || new Date().toISOString(),
     }
 
-    onSaveAgreement(agreement)
+    setIsSaving(true)
+    try {
+      if (!(await onSaveAgreement(agreement))) {
+        setSaveError('Could not save the agreement. Please try again.')
+      }
+    } catch {
+      setSaveError('Could not save the agreement. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  return (
-    <ModalSheet
-      isOpen={isOpen}
-      onClose={onClose}
-      title={isFirstSetup ? 'Set the agreement' : 'Agreement settings'}
-    >
-      <form onSubmit={handleSubmit} className="space-y-5">
+  const form = (
+      <form id={actualFormId} onSubmit={handleSubmit} className="space-y-5">
         {/* Sister's Name (Optional) */}
         <div>
-          <label className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
+          <label htmlFor="agreement-sister-name" className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
             Sister's name <span className="text-[#938D9F] font-normal">(optional)</span>
           </label>
           <input
+            id="agreement-sister-name"
             type="text"
             value={sisterName}
             onChange={(e) => setSisterName(e.target.value)}
@@ -151,10 +168,11 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
         {/* Debt Amount and Hourly USD row */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
+            <label htmlFor="agreement-debt-target" className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
               Debt target (£)
             </label>
             <input
+              id="agreement-debt-target"
               type="number"
               step="any"
               min="0.01"
@@ -166,10 +184,11 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
           </div>
 
           <div>
-            <label className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
+            <label htmlFor="agreement-hourly-rate" className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
               Rate (US$/hr)
             </label>
             <input
+              id="agreement-hourly-rate"
               type="number"
               step="any"
               min="0.01"
@@ -184,9 +203,9 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
         {/* Exchange Rate Section */}
         <div className="bg-[#111114] border border-[#2D2B35] rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-[13px] font-semibold text-[#F5F2F8]">
+            <span className="text-[13px] font-semibold text-[#F5F2F8]">
               Agreed exchange rate
-            </label>
+            </span>
             <button
               type="button"
               onClick={fetchLiveExchangeRate}
@@ -204,14 +223,18 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
               US$1 = £
             </span>
             <input
+              id="agreement-exchange-rate"
               type="number"
               step="any"
               min="0.0001"
               value={rateInput}
               onChange={(e) => {
+                rateRequestVersion.current += 1
+                setIsFetchingRate(false)
                 setRateInput(e.target.value)
-                setRateSource('Custom entered rate')
-                setRateDate(new Date().toLocaleDateString('en-GB'))
+                setRateSource('Manual entry')
+                setRateDate(new Date().toISOString().slice(0, 10))
+                setFetchError(null)
               }}
               className="input-base font-semibold"
               placeholder="0.80"
@@ -227,23 +250,29 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
                 Retrieving live market rate...
               </span>
             ) : fetchError ? (
-              <span className="text-[#F5F2F8]">{fetchError}</span>
+              <span className="block">
+                {rateSource ? (
+                  <>
+                    Source: <strong className="text-[#F5F2F8]">{rateSource}</strong>
+                    {rateDate ? ` (${rateDate})` : ''}.
+                  </>
+                ) : (
+                  <span>No rate source selected yet.</span>
+                )}
+                <span className="block text-[#F5F2F8] mt-1">{fetchError}</span>
+              </span>
             ) : (
               <span>
-                Source: <strong className="text-[#F5F2F8]">{rateSource}</strong> ({rateDate}).
+                {rateSource ? (
+                  <>
+                    Source: <strong className="text-[#F5F2F8]">{rateSource}</strong>
+                    {rateDate ? ` (${rateDate})` : ''}.
+                  </>
+                ) : (
+                  'No rate source selected. Fetch a live rate or enter an agreed rate manually.'
+                )}
               </span>
             )}
-          </div>
-
-          {/* Quick preset for test rate */}
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={handleUseTestRate}
-              className="text-[12px] text-[#B6A0E9] hover:underline"
-            >
-              Use specification test rate (US$1 = £0.80)
-            </button>
           </div>
         </div>
 
@@ -256,33 +285,32 @@ export const SetupSheet: React.FC<SetupSheetProps> = ({
             <div>
               <span className="block text-[12px] text-[#938D9F]">5 minutes work</span>
               <span className="text-[15px] font-semibold text-[#F5F2F8]">
-                US$0.50 · £{fiveMinGbp}
+                US${formatPreviewAmount(fiveMinUsd)} · £{formatPreviewAmount(fiveMinGbp)}
               </span>
             </div>
             <div>
               <span className="block text-[12px] text-[#938D9F]">1 hour work</span>
               <span className="text-[15px] font-semibold text-[#F5F2F8]">
-                US$6.00 · £{oneHourGbp}
+                US${formatPreviewAmount(oneHourUsd)} · £{formatPreviewAmount(oneHourGbp)}
               </span>
             </div>
           </div>
         </div>
 
-        {validationError && (
-          <p className="text-[13px] text-[#F5F2F8] font-medium bg-red-950/40 border border-red-800/60 p-3 rounded-lg">
-            {validationError}
+        {(validationError || saveError) && (
+          <p role="alert" className="text-[13px] text-red-300 font-medium">
+            {validationError || saveError}
           </p>
         )}
 
-        <div className="pt-2">
-          <button
-            type="submit"
-            className="w-full h-[52px] rounded-[14px] bg-[#B6A0E9] text-[#151019] text-[16px] font-semibold hover:bg-[#c4b1ed] active:scale-[0.985] transition-all flex items-center justify-center"
-          >
-            {isFirstSetup ? 'Start agreement' : 'Save agreement'}
-          </button>
-        </div>
       </form>
-    </ModalSheet>
   )
+  if (embedded) return form
+  return <ModalSheet isOpen={isOpen} onClose={onClose} title={isFirstSetup ? 'Set the agreement' : 'Agreement settings'}
+    canClose={!isFirstSetup} hasUnsavedChanges={dirty}
+    footer={<button type="submit" form={actualFormId} disabled={isSaving} className="btn-base btn-violet w-full">
+      {isSaving ? 'Saving…' : isFirstSetup ? 'Start agreement' : 'Save agreement'}
+    </button>}>
+    {form}
+  </ModalSheet>
 }

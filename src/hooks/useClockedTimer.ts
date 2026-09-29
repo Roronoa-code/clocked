@@ -10,17 +10,64 @@ import { calculateSessionValues } from '../utils/calculations'
 interface UseClockedTimerProps {
   agreement: Agreement | null
   onSaveSession: (session: WorkSession) => Promise<boolean>
+  initialActiveSession?: ActiveSession | null
+  onPersistActiveSession?: (
+    session: ActiveSession | null,
+    expected: ActiveSession | null
+  ) => Promise<boolean>
 }
 
-export function useClockedTimer({ agreement, onSaveSession }: UseClockedTimerProps) {
-  const [activeSession, setActiveSession] = useState<ActiveSession | null>(() => loadActiveSession())
+interface PendingSave {
+  record: WorkSession
+  activeSession: ActiveSession
+  expectedActiveSession: ActiveSession
+  activePersisted: boolean
+  persisted: boolean
+}
+
+export function useClockedTimer({
+  agreement,
+  onSaveSession,
+  initialActiveSession,
+  onPersistActiveSession,
+}: UseClockedTimerProps) {
+  const [activeSession, setActiveSession] = useState<ActiveSession | null>(() =>
+    initialActiveSession === undefined ? loadActiveSession() : initialActiveSession
+  )
+  const [taskNoteDraft, setTaskNoteDraft] = useState('')
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0)
   const [timerStatus, setTimerStatus] = useState<ActiveSessionStatus>('idle')
   const [lastSavedInfo, setLastSavedInfo] = useState<{ duration: string; gbpAmount: string } | null>(null)
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null)
   const isSavingRef = useRef(false)
+  const isPersistingRef = useRef(false)
+  const pendingSaveRef = useRef<PendingSave | null>(null)
+  const deferredSessionRef = useRef<ActiveSession | null | undefined>(undefined)
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedNoticeRef = useRef(false)
 
-  // Calculate current elapsed seconds from activeSession timestamps
+  const clearSavedTimeout = useCallback(() => {
+    if (savedTimeoutRef.current !== null) {
+      clearTimeout(savedTimeoutRef.current)
+      savedTimeoutRef.current = null
+    }
+  }, [])
+
+  const persistActiveSession = useCallback(async (
+    session: ActiveSession | null,
+    expected: ActiveSession | null = null
+  ) => {
+    try {
+      return onPersistActiveSession
+        ? await onPersistActiveSession(session, expected)
+        : saveActiveSession(session)
+    } catch (err) {
+      console.error('Failed to persist active session:', err)
+      return false
+    }
+  }, [onPersistActiveSession])
+
+  // Calculate current elapsed seconds from activeSession timestamps.
   const computeElapsedSeconds = useCallback((session: ActiveSession | null): number => {
     if (!session) return 0
     let totalMs = session.activeDurationMs
@@ -30,25 +77,59 @@ export function useClockedTimer({ agreement, onSaveSession }: UseClockedTimerPro
     return Math.floor(totalMs / 1000)
   }, [])
 
-  // Sync elapsed seconds in state
+  const rehydrateFromServer = useCallback((session: ActiveSession | null) => {
+    const pending = pendingSaveRef.current
+    if (pending && session?.id === pending.activeSession.id) {
+      setActiveSession(pending.activeSession)
+      return
+    }
+    if (pending) pendingSaveRef.current = null
+    if (session) {
+      savedNoticeRef.current = false
+      clearSavedTimeout()
+      setLastSavedInfo(null)
+    } else if (!savedNoticeRef.current) {
+      clearSavedTimeout()
+      setTimerStatus('idle')
+      setSaveErrorMessage(null)
+      setLastSavedInfo(null)
+    }
+    setActiveSession(session)
+  }, [clearSavedTimeout])
+
+  // Rehydrate sessions received from the server, except while a save owns a frozen snapshot.
+  useEffect(() => {
+    if (initialActiveSession === undefined) return
+    if (isSavingRef.current) {
+      deferredSessionRef.current = initialActiveSession
+      return
+    }
+    rehydrateFromServer(initialActiveSession)
+  }, [initialActiveSession, rehydrateFromServer])
+
+  // Sync elapsed seconds and status from activeSession timestamps.
   useEffect(() => {
     if (!activeSession) {
       setElapsedSeconds(0)
-      if (timerStatus !== 'saved' && timerStatus !== 'save_failed') {
-        setTimerStatus('idle')
-      }
+      setTimerStatus((current) =>
+        current === 'saved' || current === 'save_failed' || current === 'saving'
+          ? current
+          : 'idle'
+      )
       return
     }
 
     setElapsedSeconds(computeElapsedSeconds(activeSession))
-    if (activeSession.status === 'running') {
-      setTimerStatus('running')
-    } else if (activeSession.status === 'paused') {
-      setTimerStatus('paused')
-    }
+    setTimerStatus((current) => {
+      if (isSavingRef.current && current === 'saving') return current
+      if (pendingSaveRef.current?.activeSession.id === activeSession.id && current === 'save_failed') {
+        return current
+      }
+      return activeSession.status
+    })
   }, [activeSession, computeElapsedSeconds])
 
-  // Ticking effect when running
+  // Ticking effect when running.
   useEffect(() => {
     if (!activeSession || activeSession.status !== 'running') return
 
@@ -59,42 +140,79 @@ export function useClockedTimer({ agreement, onSaveSession }: UseClockedTimerPro
     return () => clearInterval(interval)
   }, [activeSession, computeElapsedSeconds])
 
-  // Listen to multi-tab updates via BroadcastChannel
+  // Local multi-tab sync is a fallback when the app has no server session callback.
   useEffect(() => {
+    if (onPersistActiveSession) return
+
     const unsubscribe = subscribeToSync((message) => {
       if (message.type === 'ACTIVE_SESSION_UPDATE') {
+        clearSavedTimeout()
+        savedNoticeRef.current = false
+        setLastSavedInfo(null)
+        if (!message.activeSession) setTimerStatus('idle')
+        if (pendingSaveRef.current && message.activeSession?.id !== pendingSaveRef.current.activeSession.id) {
+          pendingSaveRef.current = null
+        }
         setActiveSession(message.activeSession)
       }
     })
     return unsubscribe
-  }, [])
+  }, [clearSavedTimeout, onPersistActiveSession])
 
-  // Action: Clock In
-  const clockIn = useCallback(
-    (initialTaskNote: string = '') => {
-      if (!agreement) return
-      const now = Date.now()
-      const newSession: ActiveSession = {
-        id: 'session-' + now + '-' + Math.random().toString(36).substring(2, 7),
-        agreementId: agreement.id,
-        startedAt: now,
-        activeDurationMs: 0,
-        currentRunStartedAt: now,
-        status: 'running',
-        taskNote: initialTaskNote,
+  const flushDeferredSession = useCallback((saveSucceeded: boolean) => {
+    if (saveSucceeded) {
+      deferredSessionRef.current = undefined
+      return
+    }
+    const deferredSession = deferredSessionRef.current
+    deferredSessionRef.current = undefined
+    if (deferredSession !== undefined) rehydrateFromServer(deferredSession)
+  }, [rehydrateFromServer])
+
+  useEffect(() => clearSavedTimeout, [clearSavedTimeout])
+
+  // Action: Clock In.
+  const clockIn = useCallback(async (initialTaskNote: string = taskNoteDraft): Promise<boolean> => {
+    if (!agreement || activeSession || isSavingRef.current || isPersistingRef.current) return false
+    isPersistingRef.current = true
+    clearSavedTimeout()
+    savedNoticeRef.current = false
+    setTimerStatus('idle')
+    setLastSavedInfo(null)
+    const now = Date.now()
+    const newSession: ActiveSession = {
+      id: 'session-' + now + '-' + Math.random().toString(36).substring(2, 7),
+      agreementId: agreement.id,
+      startedAt: now,
+      activeDurationMs: 0,
+      currentRunStartedAt: now,
+      status: 'running',
+      taskNote: initialTaskNote,
+    }
+
+    try {
+      if (!(await persistActiveSession(newSession, null))) {
+        setSaveErrorMessage("Couldn't save your session. Please try again.")
+        return false
       }
-      saveActiveSession(newSession)
+      pendingSaveRef.current = null
       setActiveSession(newSession)
+      setTaskNoteDraft('')
       setTimerStatus('running')
       setSaveErrorMessage(null)
       setLastSavedInfo(null)
-    },
-    [agreement]
-  )
+      return true
+    } finally {
+      isPersistingRef.current = false
+    }
+  }, [activeSession, agreement, clearSavedTimeout, persistActiveSession, taskNoteDraft])
 
-  // Action: Pause
-  const pause = useCallback(() => {
-    if (!activeSession || activeSession.status !== 'running') return
+  // Action: Pause.
+  const pause = useCallback(async (): Promise<boolean> => {
+    if (!activeSession || activeSession.status !== 'running' || isSavingRef.current || isPersistingRef.current) {
+      return false
+    }
+    isPersistingRef.current = true
     const now = Date.now()
     const addedMs = activeSession.currentRunStartedAt
       ? Math.max(0, now - activeSession.currentRunStartedAt)
@@ -105,146 +223,252 @@ export function useClockedTimer({ agreement, onSaveSession }: UseClockedTimerPro
       currentRunStartedAt: null,
       status: 'paused',
     }
-    saveActiveSession(updated)
-    setActiveSession(updated)
-    setTimerStatus('paused')
-  }, [activeSession])
 
-  // Action: Resume
-  const resume = useCallback(() => {
-    if (!activeSession || activeSession.status !== 'paused') return
+    try {
+      if (!(await persistActiveSession(updated, activeSession))) {
+        setSaveErrorMessage("Couldn't save your changes. Your session is kept.")
+        return false
+      }
+      setActiveSession(updated)
+      setTimerStatus('paused')
+      setSaveErrorMessage(null)
+      return true
+    } finally {
+      isPersistingRef.current = false
+    }
+  }, [activeSession, persistActiveSession])
+
+  // Action: Resume.
+  const resume = useCallback(async (): Promise<boolean> => {
+    if (!activeSession || activeSession.status !== 'paused' || isSavingRef.current || isPersistingRef.current) {
+      return false
+    }
+    isPersistingRef.current = true
     const now = Date.now()
     const updated: ActiveSession = {
       ...activeSession,
       currentRunStartedAt: now,
       status: 'running',
     }
-    saveActiveSession(updated)
-    setActiveSession(updated)
-    setTimerStatus('running')
-    setSaveErrorMessage(null)
-  }, [activeSession])
 
-  // Action: Correct time (when paused)
-  const correctTime = useCallback(
-    (newDurationSec: number) => {
-      if (!activeSession || activeSession.status !== 'paused') return
-      const updated: ActiveSession = {
-        ...activeSession,
-        activeDurationMs: Math.max(0, newDurationSec * 1000),
-        currentRunStartedAt: null,
+    try {
+      if (!(await persistActiveSession(updated, activeSession))) {
+        setSaveErrorMessage("Couldn't save your changes. Your session is kept.")
+        return false
       }
-      saveActiveSession(updated)
+      pendingSaveRef.current = null
       setActiveSession(updated)
-      setElapsedSeconds(newDurationSec)
-    },
-    [activeSession]
-  )
-
-  // Action: Update task note
-  const updateTaskNote = useCallback(
-    (note: string) => {
-      if (!activeSession) return
-      const updated: ActiveSession = {
-        ...activeSession,
-        taskNote: note,
-      }
-      saveActiveSession(updated)
-      setActiveSession(updated)
-    },
-    [activeSession]
-  )
-
-  // Action: Save session
-  const save = useCallback(
-    async (simulateFailure: boolean = false) => {
-      if (!activeSession || !agreement || isSavingRef.current) return
-      isSavingRef.current = true
-      setTimerStatus('saving')
+      setTimerStatus('running')
       setSaveErrorMessage(null)
+      return true
+    } finally {
+      isPersistingRef.current = false
+    }
+  }, [activeSession, persistActiveSession])
 
-      // Freeze exact elapsed time right now
+  // Action: Correct time, optionally committing the task edit in the same write.
+  const correctTime = useCallback(async (newDurationSec: number, taskNote?: string): Promise<boolean> => {
+    if (
+      !activeSession || activeSession.status !== 'paused' || isSavingRef.current || isPersistingRef.current ||
+      !Number.isFinite(newDurationSec) || newDurationSec < 0
+    ) {
+      return false
+    }
+    isPersistingRef.current = true
+    const updated: ActiveSession = {
+      ...activeSession,
+      activeDurationMs: Math.floor(newDurationSec) * 1000,
+      currentRunStartedAt: null,
+      ...(taskNote === undefined ? {} : { taskNote }),
+    }
+
+    try {
+      if (!(await persistActiveSession(updated, activeSession))) {
+        setSaveErrorMessage("Couldn't save your changes. Your session is kept.")
+        return false
+      }
+      pendingSaveRef.current = null
+      setActiveSession(updated)
+      setElapsedSeconds(Math.floor(newDurationSec))
+      setTimerStatus('paused')
+      setSaveErrorMessage(null)
+      return true
+    } finally {
+      isPersistingRef.current = false
+    }
+  }, [activeSession, persistActiveSession])
+
+  // Action: Update task note or the idle task draft.
+  const updateTaskNote = useCallback(async (note: string): Promise<boolean> => {
+    if (!activeSession) {
+      setTaskNoteDraft(note)
+      setSaveErrorMessage(null)
+      return true
+    }
+    if (isSavingRef.current || isPersistingRef.current) return false
+    isPersistingRef.current = true
+    const updated: ActiveSession = { ...activeSession, taskNote: note }
+
+    try {
+      if (!(await persistActiveSession(updated, activeSession))) {
+        setSaveErrorMessage("Couldn't save your changes. Your session is kept.")
+        return false
+      }
+      pendingSaveRef.current = null
+      setActiveSession(updated)
+      setSaveErrorMessage(null)
+      return true
+    } finally {
+      isPersistingRef.current = false
+    }
+  }, [activeSession, persistActiveSession])
+
+  // Action: Save session.
+  const save = useCallback(async (simulateFailure: boolean = false): Promise<boolean> => {
+    if (!activeSession || !agreement || isSavingRef.current || isPersistingRef.current) return false
+    isSavingRef.current = true
+    clearSavedTimeout()
+    setTimerStatus('saving')
+    setSaveErrorMessage(null)
+    let savedSuccessfully = false
+
+    let pending = pendingSaveRef.current
+    if (!pending || pending.record.id !== activeSession.id) {
       const finalSec = computeElapsedSeconds(activeSession)
       if (finalSec <= 0) {
-        // Nothing to save
-        saveActiveSession(null)
-        setActiveSession(null)
-        setTimerStatus('idle')
-        isSavingRef.current = false
-        return
+        let cleared = false
+        try {
+          if (!(await persistActiveSession(null, activeSession))) {
+            setTimerStatus(activeSession.status)
+            setSaveErrorMessage("Couldn't clear your empty session. Your session is kept.")
+            return false
+          }
+          setActiveSession(null)
+          setTimerStatus('idle')
+          cleared = true
+          return true
+        } finally {
+          isSavingRef.current = false
+          flushDeferredSession(cleared)
+        }
       }
 
+      const startedAt = new Date(activeSession.startedAt)
+      const yyyy = startedAt.getFullYear()
+      const mm = String(startedAt.getMonth() + 1).padStart(2, '0')
+      const dd = String(startedAt.getDate()).padStart(2, '0')
+      const frozenActiveSession: ActiveSession = {
+        ...activeSession,
+        activeDurationMs: finalSec * 1000,
+        currentRunStartedAt: null,
+        status: 'paused',
+      }
       const { usdEarned, gbpCredit } = calculateSessionValues(
         finalSec,
         agreement.hourlyRateUSD,
         agreement.exchangeRateUSDToGBP
       )
-
-      const now = new Date()
-      const yyyy = now.getFullYear()
-      const mm = String(now.getMonth() + 1).padStart(2, '0')
-      const dd = String(now.getDate()).padStart(2, '0')
-      const dateStr = `${yyyy}-${mm}-${dd}`
-      const startTimeStr = now.toTimeString().split(' ')[0]
-
-      const sessionRecord: WorkSession = {
+      const record = Object.freeze({
         id: activeSession.id,
         agreementId: agreement.id,
-        date: dateStr,
-        startTime: startTimeStr,
+        date: `${yyyy}-${mm}-${dd}`,
+        startTime: startedAt.toTimeString().split(' ')[0],
         activeDurationSec: finalSec,
         taskNote: activeSession.taskNote.trim() || undefined,
         usdEarned,
+        hourlyRateUSD: agreement.hourlyRateUSD,
         exchangeRate: agreement.exchangeRateUSDToGBP,
         gbpCredit,
-        appliedGbp: 0, // will be calculated by recalculateSessions
+        appliedGbp: 0,
         excessGbp: 0,
-        createdAt: now.toISOString(),
+        createdAt: new Date().toISOString(),
+      })
+      pending = {
+        record,
+        activeSession: frozenActiveSession,
+        expectedActiveSession: activeSession,
+        activePersisted: false,
+        persisted: false,
+      }
+      pendingSaveRef.current = pending
+    }
+
+    // Freeze the displayed timer immediately and require the frozen active state to persist first.
+    setActiveSession(pending.activeSession)
+    setElapsedSeconds(pending.activeSession.activeDurationMs / 1000)
+
+    try {
+      if (!pending.activePersisted) {
+        if (!(await persistActiveSession(pending.activeSession, pending.expectedActiveSession))) {
+          throw new Error('Failed to persist frozen active session')
+        }
+        pending = { ...pending, activePersisted: true }
+        pendingSaveRef.current = pending
+      }
+      if (simulateFailure) throw new Error('Simulated save error')
+
+      if (!pending.persisted) {
+        const success = await onSaveSession(pending.record)
+        if (!success) throw new Error('Session save was not confirmed')
+        pending = { ...pending, persisted: true }
+        pendingSaveRef.current = pending
       }
 
-      try {
-        if (simulateFailure) {
-          throw new Error('Simulated save error')
-        }
-
-        const success = await onSaveSession(sessionRecord)
-        if (success) {
-          // Clear active session only upon confirmed success
-          saveActiveSession(null)
-          setActiveSession(null)
-          setLastSavedInfo({
-            duration: finalSec < 60 ? `${finalSec}s` : `${Math.floor(finalSec / 60)}m`,
-            gbpAmount: `£${gbpCredit.toFixed(2)}`,
-          })
-          setTimerStatus('saved')
-
-          // Return to Ready after brief acknowledgement (3 seconds)
-          setTimeout(() => {
-            setTimerStatus('idle')
-            setLastSavedInfo(null)
-          }, 3200)
-        } else {
-          setTimerStatus('save_failed')
-          setSaveErrorMessage("Couldn't save. Your time is kept.")
-        }
-      } catch (err: any) {
-        console.error('Save failed:', err)
-        setTimerStatus('save_failed')
-        setSaveErrorMessage("Couldn't save. Your time is kept.")
-      } finally {
-        isSavingRef.current = false
+      // The server callback saves the record and clears activeSession atomically.
+      // The local fallback still needs to clear the browser copy.
+      if (!onPersistActiveSession && !(await persistActiveSession(null, pending.activeSession))) {
+        throw new Error('Failed to clear the saved active session')
       }
-    },
-    [activeSession, agreement, computeElapsedSeconds, onSaveSession]
-  )
 
-  // Action: Retry save
-  const retrySave = useCallback(() => {
-    save(false)
-  }, [save])
+      pendingSaveRef.current = null
+      setActiveSession(null)
+      const savedInfo = {
+        duration: pending.record.activeDurationSec < 60
+          ? `${pending.record.activeDurationSec}s`
+          : `${Math.floor(pending.record.activeDurationSec / 60)}m`,
+        gbpAmount: `£${pending.record.gbpCredit.toFixed(2)}`,
+      }
+      setLastSavedInfo(savedInfo)
+      savedNoticeRef.current = true
+      setTimerStatus('saved')
+      savedTimeoutRef.current = setTimeout(() => {
+        savedTimeoutRef.current = null
+        savedNoticeRef.current = false
+        setTimerStatus((current) => current === 'saved' ? 'idle' : current)
+        setLastSavedInfo((current) => current === savedInfo ? null : current)
+      }, 3200)
+      savedSuccessfully = true
+      return true
+    } catch (err) {
+      console.error('Save failed:', err)
+      setTimerStatus('save_failed')
+      setSaveErrorMessage(pending.persisted
+        ? "Saved, but couldn't clear the active timer. Retry to finish."
+        : pending.activePersisted
+          ? "Couldn't save. Your time is kept."
+          : "Couldn't save locally. Your time is kept in this tab.")
+      return false
+    } finally {
+      isSavingRef.current = false
+      flushDeferredSession(savedSuccessfully === true)
+    }
+  }, [
+    activeSession,
+    agreement,
+    clearSavedTimeout,
+    computeElapsedSeconds,
+    flushDeferredSession,
+    onPersistActiveSession,
+    onSaveSession,
+    persistActiveSession,
+  ])
+
+  // Action: Retry save; the pending record remains fixed until an explicit edit or resume.
+  const retrySave = useCallback(() => save(false), [save])
 
   return {
     activeSession,
+    taskNoteDraft,
     elapsedSeconds,
     timerStatus,
     lastSavedInfo,

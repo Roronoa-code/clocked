@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import type { WorkSession } from '../types'
 import { formatHoursMinutes, formatUSD } from '../utils/calculations'
 
@@ -13,6 +13,9 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
   onOpenAddTime,
   onSelectSession,
 }) => {
+  const previousIds = useRef<Set<string> | null>(null)
+  const addedIds = new Set(previousIds.current === null ? [] : sessions.filter(item => !previousIds.current!.has(item.id)).map(item => item.id))
+  useEffect(() => { previousIds.current = new Set(sessions.map(item => item.id)) }, [sessions])
   // Format date helper: "Today", "Yesterday", or formatted date string
   const getGroupLabel = (dateStr: string) => {
     const today = new Date()
@@ -80,7 +83,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 
       {/* History List or Empty State */}
       {sessions.length === 0 ? (
-        <div className="py-12 px-4 text-center border-t border-[#2D2B35]">
+        <div className="pt-6 border-t border-[#2D2B35]">
           <p className="text-[15px] text-[#ABA6B5]">
             Your saved sessions will appear here.
           </p>
@@ -101,14 +104,16 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                 {group.items.map((session) => {
                   const durationFormatted = formatHoursMinutes(session.activeDurationSec)
                   const title = session.taskNote?.trim() || 'Work session'
-                  const gbpOff = session.appliedGbp.toFixed(2)
+                  const gbpOff = session.appliedGbp > 0 && session.appliedGbp < 0.01
+                    ? '<0.01'
+                    : session.appliedGbp.toFixed(2)
 
                   return (
                     <button
                       key={session.id}
                       type="button"
                       onClick={() => onSelectSession(session)}
-                      className="w-full min-h-[64px] py-3.5 flex items-center justify-between text-left hover:bg-[#111114] active:bg-[#19191F] px-2 rounded-lg transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#B6A0E9] group"
+                      className={`w-full min-h-[64px] py-3.5 flex items-center justify-between text-left hover:bg-[#111114] active:bg-[#19191F] px-2 rounded-lg transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[#B6A0E9] group ${addedIds.has(session.id) ? 'session-row-new' : ''}`}
                     >
                       {/* Left: Task name & metadata */}
                       <div className="min-w-0 pr-4">

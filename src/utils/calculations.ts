@@ -28,7 +28,7 @@ export function calculateGbpCredit(usdEarned: number, exchangeRateUSDToGBP: numb
 }
 
 /**
- * Calculates exact session values from active seconds.
+ * Calculates session values using the eight-decimal rounding policy.
  */
 export function calculateSessionValues(
   activeSeconds: number,
@@ -42,12 +42,14 @@ export function calculateSessionValues(
 
 /**
  * Recalculates all saved sessions chronologically against the agreement's debt.
+ * Sessions with rate snapshots are recalculated from those snapshots; legacy
+ * sessions without snapshots keep their saved USD and GBP amounts.
  * Ensures:
- * 1. Total credit is preserved mathematically without penny rounding drift.
+ * 1. Session credit is preserved to eight decimals without penny rounding drift.
  * 2. appliedGbp per session accurately tracks how much that session knocked off the debt.
  * 3. excessGbp records any work done past zero debt.
  * 4. Remaining debt never drops below zero.
- * 5. Twelve 5-minute sessions match one 60-minute session identically.
+ * 5. The standard 5-minute benchmark matches a 60-minute session.
  */
 export function recalculateSessions(
   sessions: WorkSession[],
@@ -72,9 +74,14 @@ export function recalculateSessions(
   let totalExcessGbp = 0
 
   const recalculatedSessions: WorkSession[] = sorted.map((session) => {
-    const rate = session.exchangeRate || agreement.exchangeRateUSDToGBP
-    const hourly = agreement.hourlyRateUSD || 6.0
-    const { usdEarned, gbpCredit } = calculateSessionValues(session.activeDurationSec, hourly, rate)
+    const hasRateSnapshots =
+      session.hourlyRateUSD != null &&
+      Number.isFinite(session.hourlyRateUSD) &&
+      Number.isFinite(session.exchangeRate)
+    const rate = session.exchangeRate
+    const { usdEarned, gbpCredit } = hasRateSnapshots
+      ? calculateSessionValues(session.activeDurationSec, session.hourlyRateUSD!, rate)
+      : { usdEarned: session.usdEarned, gbpCredit: session.gbpCredit }
 
     totalSavedSeconds += session.activeDurationSec
     totalUsdEarned = roundToPrecision(totalUsdEarned + usdEarned)
@@ -100,7 +107,7 @@ export function recalculateSessions(
   const idMap = new Map(recalculatedSessions.map((s) => [s.id, s]))
   const updatedOriginalList = sessions.map((s) => idMap.get(s.id) || s)
 
-  const cleanRemainingDebt = remainingDebt < 1e-7 ? 0 : remainingDebt
+  const cleanRemainingDebt = remainingDebt
 
   // Check if positive but less than one penny (0 < debt < 0.01)
   const isLessThanOnePenny = cleanRemainingDebt > 0 && cleanRemainingDebt < 0.01
@@ -161,7 +168,7 @@ export function calculateProjectedSummary(
   const projectedApplied = roundToPrecision(Math.max(0, Math.min(pendingGbp, savedSummary.remainingDebt)))
   const projectedExcess = roundToPrecision(Math.max(0, pendingGbp - projectedApplied))
   const projectedRemaining = roundToPrecision(Math.max(0, savedSummary.remainingDebt - projectedApplied))
-  const cleanProjectedRemaining = projectedRemaining < 1e-7 ? 0 : projectedRemaining
+  const cleanProjectedRemaining = projectedRemaining
 
   const isLessThanOnePenny = cleanProjectedRemaining > 0 && cleanProjectedRemaining < 0.01
   const isAllSquare = cleanProjectedRemaining === 0
@@ -223,16 +230,14 @@ export function formatHMS(totalSeconds: number): string {
 
 /**
  * Formats duration in hours and minutes for supporting summaries:
- * e.g. "2h 45m" or "45m" or "0m"
+ * e.g. "2h 45m", "45m", or "30s"
  */
 export function formatHoursMinutes(totalSeconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds))
   const hours = Math.floor(safeSeconds / 3600)
   const minutes = Math.floor((safeSeconds % 3600) / 60)
-
-  if (hours === 0 && minutes === 0) {
-    return '0m'
-  }
+  if (safeSeconds < 60) return `${safeSeconds}s`
+  if (safeSeconds < 600 && safeSeconds % 60) return `${minutes}m ${safeSeconds % 60}s`
   if (hours === 0) {
     return `${minutes}m`
   }

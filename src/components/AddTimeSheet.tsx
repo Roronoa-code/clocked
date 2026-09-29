@@ -1,21 +1,24 @@
-import React, { useState } from 'react'
+import React, { useId, useState } from 'react'
 import { ModalSheet } from './ModalSheet'
 import type { Agreement, WorkSession } from '../types'
-import { calculateSessionValues, formatUSD } from '../utils/calculations'
+import { calculateSessionValues, formatGBP, formatUSD } from '../utils/calculations'
 
 interface AddTimeSheetProps {
   isOpen: boolean
   onClose: () => void
   agreement: Agreement
-  onSaveSession: (session: WorkSession) => void
+  remainingDebt: number
+  onSaveSession: (session: WorkSession) => boolean | Promise<boolean>
 }
 
 export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
   isOpen,
   onClose,
   agreement,
+  remainingDebt,
   onSaveSession,
 }) => {
+  const formId = useId()
   const todayStr = () => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -30,6 +33,9 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
   const [taskNote, setTaskNote] = useState<string>('')
   const [durationError, setDurationError] = useState<string | null>(null)
   const [dateError, setDateError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const dirty = date !== todayStr() || hours !== '0' || minutes !== '30' || seconds !== '0' || taskNote !== ''
 
   const numHours = parseInt(hours || '0', 10) || 0
   const numMinutes = parseInt(minutes || '0', 10) || 0
@@ -42,10 +48,11 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
     agreement.exchangeRateUSDToGBP
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setDurationError(null)
     setDateError(null)
+    setSaveError(null)
 
     if (!date) {
       setDateError('Please select a date.')
@@ -67,10 +74,10 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
       id: 'session-manual-' + Date.now(),
       agreementId: agreement.id,
       date,
-      startTime: new Date().toTimeString().split(' ')[0],
       activeDurationSec: totalSeconds,
       taskNote: taskNote.trim() || undefined,
       usdEarned,
+      hourlyRateUSD: agreement.hourlyRateUSD,
       exchangeRate: agreement.exchangeRateUSDToGBP,
       gbpCredit,
       appliedGbp: 0,
@@ -78,19 +85,31 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
       createdAt: new Date().toISOString(),
     }
 
-    onSaveSession(session)
-    onClose()
+    setIsSaving(true)
+    try {
+      if (!(await onSaveSession(session))) {
+        setSaveError('Could not save the session. Please try again.')
+        return
+      }
+      onClose()
+    } catch {
+      setSaveError('Could not save the session. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
-    <ModalSheet isOpen={isOpen} onClose={onClose} title="Add time">
-      <form onSubmit={handleSubmit} className="space-y-5">
+    <ModalSheet isOpen={isOpen} onClose={onClose} title="Add time" hasUnsavedChanges={dirty}
+      footer={<button type="submit" form={formId} disabled={isSaving} className="btn-base btn-offwhite w-full">{isSaving ? 'Saving…' : 'Save session'}</button>}>
+      <form id={formId} onSubmit={handleSubmit} className="space-y-5">
         {/* 1. Date */}
         <div>
-          <label className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
+          <label htmlFor="add-time-date" className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
             Date
           </label>
           <input
+            id="add-time-date"
             type="date"
             value={date}
             onChange={(e) => {
@@ -107,13 +126,14 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
 
         {/* 2. Duration (Hours, Minutes, Seconds in one row) */}
         <div>
-          <label className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
+          <span className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
             Duration
-          </label>
+          </span>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <div className="relative">
                 <input
+                  id="add-time-hours"
                   type="number"
                   min="0"
                   max="999"
@@ -129,12 +149,13 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
                   h
                 </span>
               </div>
-              <span className="block text-[11px] text-[#938D9F] mt-1 text-center">Hours</span>
+              <label htmlFor="add-time-hours" className="block text-[11px] text-[#938D9F] mt-1 text-center">Hours</label>
             </div>
 
             <div>
               <div className="relative">
                 <input
+                  id="add-time-minutes"
                   type="number"
                   min="0"
                   max="59"
@@ -150,12 +171,13 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
                   m
                 </span>
               </div>
-              <span className="block text-[11px] text-[#938D9F] mt-1 text-center">Minutes</span>
+              <label htmlFor="add-time-minutes" className="block text-[11px] text-[#938D9F] mt-1 text-center">Minutes</label>
             </div>
 
             <div>
               <div className="relative">
                 <input
+                  id="add-time-seconds"
                   type="number"
                   min="0"
                   max="59"
@@ -171,7 +193,7 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
                   s
                 </span>
               </div>
-              <span className="block text-[11px] text-[#938D9F] mt-1 text-center">Seconds</span>
+              <label htmlFor="add-time-seconds" className="block text-[11px] text-[#938D9F] mt-1 text-center">Seconds</label>
             </div>
           </div>
           {durationError && (
@@ -181,10 +203,11 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
 
         {/* 3. Optional Task */}
         <div>
-          <label className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
+          <label htmlFor="add-time-task" className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
             Task description <span className="text-[#938D9F] font-normal">(optional)</span>
           </label>
           <input
+            id="add-time-task"
             type="text"
             value={taskNote}
             onChange={(e) => setTaskNote(e.target.value)}
@@ -194,32 +217,29 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
         </div>
 
         {/* 4. Calculated Credit (Read-only) */}
-        <div className="bg-[#111114] border border-[#2D2B35] rounded-xl p-4">
+        <div className="border-t border-[#2D2B35] pt-4">
           <span className="block text-[12px] font-medium text-[#ABA6B5] uppercase tracking-wider mb-2">
             Calculated credit
           </span>
           <div className="flex items-baseline justify-between">
             <span className="text-[28px] font-bold text-[#F5F2F8] tabular-nums">
-              £{gbpCredit.toFixed(2)} off
+              {formatGBP(Math.min(gbpCredit, remainingDebt), { allowLessThanPenny: true })} off
             </span>
             <div className="text-right text-[13px] text-[#ABA6B5]">
               <span>{formatUSD(usdEarned)} earned</span>
               <span className="block text-[11px] text-[#938D9F]">
-                US$1 = £{agreement.exchangeRateUSDToGBP}
+                Total value {formatGBP(gbpCredit, { allowLessThanPenny: true })} · US$1 = £{agreement.exchangeRateUSDToGBP}
               </span>
             </div>
           </div>
         </div>
 
-        {/* 5. Save session action */}
-        <div className="pt-2">
-          <button
-            type="submit"
-            className="w-full h-[52px] rounded-[14px] bg-[#F5F2F8] text-[#151019] text-[16px] font-semibold hover:bg-white active:scale-[0.985] transition-all flex items-center justify-center"
-          >
-            Save session
-          </button>
-        </div>
+        {saveError && (
+          <p role="alert" className="text-[13px] text-red-300 font-medium">
+            {saveError}
+          </p>
+        )}
+
       </form>
     </ModalSheet>
   )
