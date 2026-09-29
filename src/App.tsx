@@ -104,7 +104,7 @@ export function App() {
     && snapshot.data.archives.length === 0 && !!legacy && !legacyChoiceDismissed
   const showLegacyProblem = !!snapshot && !agreement && sessions.length === 0
     && snapshot.data.archives.length === 0 && legacyPresent && !legacy && !legacyChoiceDismissed
-  const isSetupOpen = !!snapshot && !showLegacyChoice && !showLegacyProblem && (setupEditing || !agreement)
+  const isSetupOpen = party === 'abdul' && !!snapshot && !showLegacyChoice && !showLegacyProblem && (setupEditing || !agreement)
   const motionReduced = settings.reducedMotion === true || settings.reducedMotion === 'system' && systemReduced
 
   useEffect(() => {
@@ -261,6 +261,7 @@ export function App() {
   if (party === undefined) return <div className="min-h-screen bg-black text-[#ABA6B5] grid place-items-center p-5 text-center"><div>{error || 'Opening Clocked…'}{error && <button type="button" onClick={() => window.location.reload()} className="block mx-auto mt-4 text-[#B6A0E9]">Retry</button>}</div></div>
   if (!party) return <PinGate onSignIn={login} />
   if (!snapshot) return <div className="min-h-screen bg-black text-[#ABA6B5] grid place-items-center p-5 text-center"><div>{error || 'Loading shared records…'}{error && <button type="button" onClick={() => void refresh()} className="block mx-auto mt-4 text-[#B6A0E9]">Retry</button>}</div></div>
+  if (party === 'daremo' && !agreement) return <div className="min-h-screen bg-black text-[#F5F2F8] px-5"><div className="mx-auto max-w-[1040px]"><Header party={party} onSignOut={() => void logout()} /><main className="mt-12 text-sm text-[#ABA6B5]">Abdul has not set an agreement yet.</main></div></div>
 
   const activeAgreement = agreement ?? placeholder
   const isSessionActive = !!activeSession
@@ -268,7 +269,7 @@ export function App() {
   return (
     <div data-reduced-motion={motionReduced ? 'true' : 'false'} className="min-h-screen bg-black text-[#F5F2F8] selection:bg-[#B6A0E9] selection:text-[#151019] flex flex-col items-center">
       <div className="w-full max-w-[1040px] px-5 sm:px-8 py-2 md:py-6 flex flex-col flex-1" style={isTimerDockVisible ? { paddingBottom: 'calc(88px + env(safe-area-inset-bottom))' } : undefined}>
-        <Header party={party} onSignOut={() => void logout()} onOpenSettings={() => setIsSettingsOpen(true)} />
+        <Header party={party} onSignOut={() => void logout()} onOpenSettings={party === 'abdul' ? () => setIsSettingsOpen(true) : undefined} />
         {error && <p role="alert" className="mt-3 rounded-lg border border-red-800/60 bg-red-950/30 p-3 text-sm text-red-200">{error}</p>}
         <main className="w-full mt-4 min-[1280px]:mt-8 grid grid-cols-1 min-[1280px]:grid-cols-12 gap-8 min-[1280px]:gap-12 items-start flex-1">
           <div className="w-full max-w-[560px] mx-auto min-[1280px]:col-span-7 flex flex-col">
@@ -281,7 +282,7 @@ export function App() {
               onClockIn={() => void clockIn()} onPause={() => void pause()} onResume={() => void resume()}
               onSave={() => void save()} onRetrySave={() => void retrySave()}
               onOpenCurrentSessionSheet={() => setIsCurrentSessionSheetOpen(true)}
-              onOpenConversionDetails={() => setIsSettingsOpen(true)}
+              onOpenConversionDetails={party === 'abdul' ? () => setIsSettingsOpen(true) : undefined}
               onViewSessions={() => document.getElementById('session-history-container')?.scrollIntoView({ behavior: motionReduced ? 'instant' : 'smooth' })}
             />
             {!(savedSummary.isAllSquare && !isSessionActive) && <SupportingTotals totalSavedSeconds={savedSummary.totalSavedSeconds}
@@ -312,11 +313,11 @@ export function App() {
       <CurrentSessionSheet isOpen={isCurrentSessionSheetOpen} onClose={() => setIsCurrentSessionSheetOpen(false)}
         activeSession={activeSession} elapsedSeconds={elapsedSeconds} agreement={activeAgreement} taskNoteDraft={taskNoteDraft}
         onUpdateTaskNote={updateTaskNote} onCorrectTime={correctTime} />
-      <SettingsSheet isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} agreement={activeAgreement}
+      {party === 'abdul' && <SettingsSheet isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} agreement={activeAgreement}
         sessions={sessions} activeSession={activeSession} archives={snapshot.data.archives} settings={settings}
         onUpdateSettings={next => commit(current => ({ ...current, settings: next }))}
         onSaveAgreement={saveAgreement}
-        onArchiveAndNewAgreement={archive} onRestoreBackup={restore} />
+        onArchiveAndNewAgreement={archive} onRestoreBackup={restore} />}
 
       {legacy && <ModalSheet isOpen={showLegacyChoice} onClose={() => {}} canClose={false} title="Bring over this browser’s records?"
         footer={<div className="space-y-2"><button type="button" onClick={() => void importLegacy()} className="btn-base btn-violet w-full h-12">Import records</button>

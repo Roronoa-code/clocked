@@ -21,7 +21,7 @@ interface Props {
   onSave: () => void
   onRetrySave: () => void
   onOpenCurrentSessionSheet: () => void
-  onOpenConversionDetails: () => void
+  onOpenConversionDetails?: () => void
   onViewSessions?: () => void
 }
 
@@ -52,9 +52,9 @@ export function TimerSection({ timerStatus, activeSession, elapsedSeconds, agree
       <div className="mt-2 mb-5 min-h-6 text-center text-[15px] text-[#ABA6B5]">{formatGBP(applied, { allowLessThanPenny: true })} off this session</div>
       <div id="timer-action-region"><TimerActions status={timerStatus} onClockIn={onClockIn} onPause={onPause} onResume={onResume} onSave={onSave} onRetrySave={onRetrySave} /></div>
       <div className="mt-4 text-center">
-        <button type="button" onClick={onOpenConversionDetails} className="min-h-11 -my-2 px-2 text-[13px] text-[#938D9F] hover:text-[#F5F2F8] focus-visible:outline-2 focus-visible:outline-[#B6A0E9] rounded-lg" aria-label={`Hourly rate: US$${agreement.hourlyRateUSD} per hour, about £${convertedHourly.toFixed(2)} per hour. View conversion details.`}>
+        {onOpenConversionDetails ? <button type="button" onClick={onOpenConversionDetails} className="min-h-11 -my-2 px-2 text-[13px] text-[#938D9F] hover:text-[#F5F2F8] focus-visible:outline-2 focus-visible:outline-[#B6A0E9] rounded-lg" aria-label={`Hourly rate: US$${agreement.hourlyRateUSD} per hour, about £${convertedHourly.toFixed(2)} per hour. View conversion details.`}>
           US${agreement.hourlyRateUSD}/hr · £{convertedHourly.toFixed(2)}/hr
-        </button>
+        </button> : <span className="text-[13px] text-[#938D9F]">US${agreement.hourlyRateUSD}/hr · £{convertedHourly.toFixed(2)}/hr</span>}
       </div>
       </div>
       <div className="timer-done" aria-hidden={!completed} inert={!completed}>

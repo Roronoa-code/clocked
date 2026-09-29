@@ -2,6 +2,7 @@ import React, { useId, useState } from 'react'
 import { ModalSheet } from './ModalSheet'
 import type { Agreement, WorkSession } from '../types'
 import { calculateSessionValues, formatGBP, formatUSD } from '../utils/calculations'
+import { DateField } from './DateField'
 
 interface AddTimeSheetProps {
   isOpen: boolean
@@ -108,16 +109,13 @@ export const AddTimeSheet: React.FC<AddTimeSheetProps> = ({
           <label htmlFor="add-time-date" className="block text-[13px] font-medium text-[#ABA6B5] mb-2">
             Date
           </label>
-          <input
+          <DateField
             id="add-time-date"
-            type="date"
             value={date}
-            onChange={(e) => {
-              setDate(e.target.value)
+            onChange={next => {
+              setDate(next)
               setDateError(null)
             }}
-            className="input-base"
-            required
           />
           {dateError && (
             <span className="block text-[12px] text-red-400 mt-1">{dateError}</span>

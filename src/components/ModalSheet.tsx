@@ -188,7 +188,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
       inert={!isOpen}
     >
       <div
-        className={`fixed inset-0 bg-black/75 backdrop-blur-[2px] transition-opacity ease-out ${isVisible ? `opacity-100 ${OPEN_DURATION}` : `opacity-0 ${CLOSE_DURATION}`}`}
+        className={`fixed inset-0 bg-black/75 backdrop-blur-[2px] transition-opacity ease-in-out ${isVisible ? `opacity-100 ${OPEN_DURATION}` : `opacity-0 ${CLOSE_DURATION}`}`}
         onClick={handleAttemptClose}
         aria-hidden="true"
       />
@@ -200,7 +200,7 @@ export const ModalSheet: React.FC<ModalSheetProps> = ({
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={handleDialogKeyDown}
-        className={`relative z-10 w-full md:max-w-[480px] bg-[#19191F] border-t md:border border-[#2D2B35] rounded-t-[24px] md:rounded-[20px] shadow-2xl max-h-[88dvh] md:max-h-[90dvh] flex flex-col overflow-hidden transition-[opacity,transform] ease-out ${isVisible ? `translate-y-0 opacity-100 md:scale-100 ${OPEN_DURATION}` : `translate-y-full opacity-0 md:translate-y-3 md:scale-[.99] ${CLOSE_DURATION}`}`}
+        className={`relative z-10 w-full md:max-w-[480px] bg-[#19191F] border-t md:border border-[#2D2B35] rounded-t-[24px] md:rounded-[20px] shadow-2xl max-h-[88dvh] md:max-h-[90dvh] flex flex-col overflow-hidden transition-opacity ease-in-out ${isVisible ? `opacity-100 ${OPEN_DURATION}` : `opacity-0 ${CLOSE_DURATION}`}`}
       >
         <div className="h-[60px] px-6 border-b border-[#2D2B35] flex items-center justify-between shrink-0">
           <h3

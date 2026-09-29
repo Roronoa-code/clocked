@@ -3,6 +3,7 @@ import { Edit3, Trash2 } from 'lucide-react'
 import type { Agreement, WorkSession } from '../types'
 import { calculateSessionValues, formatGBP, formatHMS, formatUSD, recalculateSessions } from '../utils/calculations'
 import { ModalSheet } from './ModalSheet'
+import { DateField } from './DateField'
 
 type Route = 'detail' | 'edit' | 'delete'
 interface Props {
@@ -147,7 +148,7 @@ export function SessionDetailSheet({ isOpen, onClose, session, sessions, agreeme
     <div className="sheet-route space-y-5" key={discardPrompt ? 'discard' : route}>
       {discardPrompt ? <p className="text-[14px]">Discard your unsaved edits to this session?</p> : route === 'edit' ?
         <form id={formId} onSubmit={save} className="space-y-5">
-          <div><label htmlFor={`${formId}-date`} className="block mb-2 text-[13px] text-[#ABA6B5]">Date</label><input id={`${formId}-date`} type="date" required value={date} onChange={event => setDate(event.target.value)} className="input-base" /></div>
+          <div><label htmlFor={`${formId}-date`} className="block mb-2 text-[13px] text-[#ABA6B5]">Date</label><DateField id={`${formId}-date`} value={date} onChange={setDate} /></div>
           <fieldset><legend className="mb-2 text-[13px] text-[#ABA6B5]">Duration</legend><div className="grid grid-cols-3 gap-2">
             {([['hours', hours, setHours, 999], ['minutes', minutes, setMinutes, 59], ['seconds', seconds, setSeconds, 59]] as const).map(([label, value, set, max]) =>
               <div key={label}><input id={`${formId}-${label}`} type="number" min="0" max={max} value={value} onChange={event => set(event.target.value)} className="input-base text-center tabular-nums" /><label htmlFor={`${formId}-${label}`} className="block mt-1 text-center text-[11px] text-[#938D9F] capitalize">{label}</label></div>)}

@@ -2,7 +2,7 @@ import React from 'react'
 import { LogOut, Settings } from 'lucide-react'
 
 interface HeaderProps {
-  onOpenSettings: () => void
+  onOpenSettings?: () => void
   party?: 'abdul' | 'daremo'
   onSignOut?: () => void
 }
@@ -32,14 +32,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, party, onSignOut
             <LogOut className="w-5 h-5 stroke-[1.8]" />
           </button>
         )}
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className="w-11 h-11 flex items-center justify-center rounded-lg text-[#ABA6B5] hover:text-[#F5F2F8] hover:bg-[#19191F] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B6A0E9]"
-          aria-label="Open settings and agreement options"
-        >
-          <Settings className="w-5 h-5 stroke-[1.8]" />
-        </button>
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="w-11 h-11 flex items-center justify-center rounded-lg text-[#ABA6B5] hover:text-[#F5F2F8] hover:bg-[#19191F] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B6A0E9]"
+            aria-label="Open settings and agreement options"
+          >
+            <Settings className="w-5 h-5 stroke-[1.8]" />
+          </button>
+        )}
       </div>
     </header>
   )

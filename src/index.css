@@ -48,10 +48,26 @@ body {
 }
 
 @keyframes sheet-route-in {
-  from { opacity: 0; transform: translateX(8px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-.sheet-route { animation: sheet-route-in 190ms var(--ease-spring) both; }
+.sheet-route { animation: sheet-route-in 190ms ease-in-out both; }
+
+.calendar-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  pointer-events: none;
+  transition: grid-template-rows 220ms var(--ease-spring), opacity 180ms ease, margin-top 220ms var(--ease-spring);
+}
+.calendar-expand[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 8px;
+  pointer-events: auto;
+}
+.calendar-expand > div { min-height: 0; overflow: hidden; }
 
 @keyframes session-row-in {
   from { opacity: 0; transform: translateY(6px); }
@@ -147,6 +163,10 @@ body {
 .input-base::placeholder {
   color: var(--color-quiet);
 }
+
+.input-base[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+.input-base[type="number"]::-webkit-inner-spin-button,
+.input-base[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* Safe area padding utilities */
 .pb-safe {
