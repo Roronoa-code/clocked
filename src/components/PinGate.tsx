@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Timer } from 'lucide-react'
+import { Check } from 'lucide-react'
 import type { Party } from '../utils/remoteState'
 
 interface Props {
@@ -34,9 +34,9 @@ export function PinGate({ onSignIn }: Props) {
 
   return (
     <main className="min-h-screen bg-black text-[#F5F2F8] flex items-center justify-center px-5">
-      <form onSubmit={submit} noValidate className="pin-card w-full max-w-sm space-y-6 rounded-[24px] border border-[#2D2B35] bg-[#111114] p-6">
+      <form onSubmit={submit} noValidate className="w-full max-w-sm space-y-6 rounded-[24px] border border-[#2D2B35] bg-[#111114] p-6">
         <div>
-          <div className="flex items-center gap-3"><span className="brand-mark" aria-hidden="true"><Timer size={20} strokeWidth={2.2} /></span><p className="text-[#B6A0E9] text-xs font-semibold uppercase tracking-[0.2em]">Clocked</p></div>
+          <p className="text-[#ABA6B5] text-xs font-semibold uppercase tracking-[0.16em]">Clocked</p>
           <h1 className="mt-3 text-3xl font-semibold">Sign in</h1>
           <p className="mt-2 text-sm text-[#ABA6B5]">Select your name and enter your PIN.</p>
         </div>

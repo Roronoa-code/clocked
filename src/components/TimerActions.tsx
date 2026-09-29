@@ -1,5 +1,4 @@
 import type { ActiveSessionStatus } from '../types'
-import { Check, Pause, Play, RotateCcw } from 'lucide-react'
 import './TimerActions.css'
 
 interface Props {
@@ -18,17 +17,15 @@ export function TimerActions({ status, compact = false, onClockIn, onPause, onRe
   const leftText = !active ? 'Clock in' : status === 'running' ? 'Pause' : status === 'paused' ? 'Resume' : frozen ? 'Paused' : 'Clock in'
   const rightText = status === 'saving' ? 'Saving…' : status === 'save_failed' ? 'Retry save' : 'Save'
   const leftAction = !active ? onClockIn : status === 'running' ? onPause : status === 'paused' ? onResume : undefined
-  const LeftIcon = status === 'running' || frozen ? Pause : Play
-  const SaveIcon = status === 'save_failed' ? RotateCcw : Check
   return (
     <div className={`timer-actions ${compact ? 'timer-actions-compact' : ''}`} data-active={active}>
       <button type="button" className={`timer-action timer-action-main ${status === 'running' || frozen ? 'timer-action-quiet' : ''}`}
         onClick={leftAction} disabled={!leftAction}>
-        <span className="timer-button-label"><LeftIcon size={16} aria-hidden="true" />{leftText}</span>
+        {leftText}
       </button>
       <button type="button" className="timer-action timer-action-save" onClick={status === 'save_failed' ? onRetrySave : onSave}
         disabled={!active || status === 'saving'} tabIndex={active ? 0 : -1} aria-hidden={!active}>
-        <span className="timer-action-save-label timer-button-label"><SaveIcon size={16} aria-hidden="true" />{rightText}</span>
+        <span className="timer-action-save-label">{rightText}</span>
       </button>
     </div>
   )
